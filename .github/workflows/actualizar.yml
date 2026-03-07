@@ -2,8 +2,8 @@ name: Actualizar Agenda TV
 
 on:
   schedule:
-    - cron: '*/15 * * * *' # Se ejecuta cada 15 minutos automáticamente
-  workflow_dispatch: # Botón para ejecutar manualmente si quieres
+    - cron: '*/15 * * * *' # Cada 15 minutos
+  workflow_dispatch: # Botón manual
 
 jobs:
   update:
