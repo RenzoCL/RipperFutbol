@@ -1,1 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi App de TV</title>
+    <style>
+        body {
+            background-color: #0f0f0f;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 40px;
+            overflow-x: hidden;
+        }
 
+        h1 { font-size: 2rem; margin-bottom: 30px; }
+
+        .grid-eventos {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        /* DISEÑO DE LA TARJETA */
+        .card {
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 4px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            outline: none; /* Quitamos el borde azul por defecto */
+        }
+
+        /* EFECTO DE FOCO (Para control remoto/teclado) */
+        .card:focus {
+            transform: scale(1.08);
+            border-color: #e50914; /* Rojo tipo Netflix */
+            background: #2a2a2a;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        .estado {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #ff0000;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .titulo { font-size: 1.2rem; margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+    <h1>Partidos en Vivo</h1>
+    <div id="contenedor" class="grid-eventos">
+        </div>
+
+    <script>
+        async function cargarDatos() {
+            try {
+                // Agregamos un timestamp para evitar caché en la TV
+                const res = await fetch('eventos.json?t=' + new Date().getTime());
+                const eventos = await res.json();
+                const contenedor = document.getElementById('contenedor');
+
+                if(eventos.length === 0) {
+                    contenedor.innerHTML = "<p>No hay eventos disponibles ahora.</p>";
+                    return;
+                }
+
+                eventos.forEach((ev, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.tabIndex = 0; // Importante para que sea seleccionable con flechas
+                    
+                    card.innerHTML = `
+                        <div class="titulo">${ev.titulo}</div>
+                        <div class="estado">${ev.estado}</div>
+                    `;
+
+                    // Acción al presionar OK/Enter
+                    const abrirCanal = () => window.location.href = ev.url;
+                    card.onclick = abrirCanal;
+                    card.onkeydown = (e) => { if(e.key === 'Enter') abrirCanal(); };
+
+                    contenedor.appendChild(card);
+                });
+
+                // Poner el foco en el primer partido automáticamente al cargar
+                document.querySelector('.card').focus();
+
+            } catch (error) {
+                console.error("Error cargando JSON:", error);
+            }
+        }
+
+        window.onload = cargarDatos;
+    </script>
+</body>
+</html>
