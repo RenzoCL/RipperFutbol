@@ -1,63 +1,94 @@
 import requests
-from bs4 import BeautifulSoup
 import json
+import os
+import re
 
-def actualizar_streamtp():
-    # URL que me indicaste
-    url = "https://streamtp10.com/eventos.html"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://streamtp10.com/"
-    }
+# CONFIGURACIÓN
+GITHUB_TOKEN = os.getenv("TOKEN_GITHUB") # Se lee de los secrets
+GIST_ID = os.getenv("GIST_ID")           # Se lee de los secrets
+SOURCE_URL = "https://streamtp10.com/eventos.json"
 
+def limpiar_nombre_canal(url):
+    """Extrae un nombre bonito del link (ej: disney10 -> Disney 10)"""
     try:
-        print(f"Buscando partidos en {url}...")
-        response = requests.get(url, headers=headers, timeout=20)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # Extraer lo que viene después de 'stream='
+        slug = url.split('stream=')[-1]
+        # Reemplazar guiones bajos y poner mayúsculas
+        nombre = slug.replace('_', ' ').title()
+        # Correcciones comunes
+        nombre = nombre.replace("Usa", "USA").replace("Hd", "HD")
+        return nombre
+    except:
+        return "Canal"
+
+def actualizar_datos():
+    print(f"📥 Descargando eventos desde {SOURCE_URL}...")
+    
+    try:
+        response = requests.get(SOURCE_URL, timeout=20)
+        data = response.json()
         
-        lista_final = []
+        # DICCIONARIO PARA AGRUPAR PARTIDOS
+        # Clave: (titulo + hora) -> Valor: Info del partido + lista de canales
+        partidos_dict = {}
 
-        # StreamTP suele usar celdas (td) o divs con clases específicas
-        # Buscamos elementos que contengan enlaces a canales
-        items = soup.find_all(['a', 'div'], href=True)
+        for item in data:
+            # Crear clave única para agrupar
+            # Usamos titulo y hora para distinguir si hay cambios
+            titulo = item.get("title", "Evento Desconocido")
+            hora = item.get("time", "--:--")
+            clave = f"{hora}_{titulo}"
 
-        for item in items:
-            href = item['href']
-            texto = item.get_text().strip()
+            link = item.get("link", "")
+            
+            # Formato del canal para tu App
+            canal = {
+                "name": limpiar_nombre_canal(link),
+                "url": link
+            }
 
-            # Filtramos: solo enlaces que lleven a "canal" o "reproductor"
-            if "canal" in href.lower() or "stream" in href.lower():
-                # Si el texto está vacío, intentamos buscar un título cerca
-                titulo = texto if texto else "Evento Deportivo"
-                
-                lista_final.append({
-                    "titulo": titulo,
-                    "url": href if href.startswith('http') else "https://streamtp10.com/" + href,
-                    "estado": "LIVE"
-                })
+            if clave not in partidos_dict:
+                # Crear entrada nueva
+                partidos_dict[clave] = {
+                    "time": hora,
+                    "teams": titulo,
+                    "league": item.get("category", "Deportes"),
+                    "channels": [canal] # Iniciamos lista de canales
+                }
+            else:
+                # El partido ya existe, solo agregamos el canal nuevo
+                # Validamos que no repita el mismo link
+                exists = any(c['url'] == link for c in partidos_dict[clave]['channels'])
+                if not exists:
+                    partidos_dict[clave]['channels'].append(canal)
 
-        # Si no encontró nada con 'canal', buscamos por tablas (común en estas webs)
-        if not lista_final:
-            for fila in soup.find_all('tr'):
-                columnas = fila.find_all('td')
-                if len(columnas) >= 2:
-                    nombre = columnas[0].get_text().strip()
-                    link_btn = fila.find('a', href=True)
-                    if link_btn:
-                        lista_final.append({
-                            "titulo": nombre,
-                            "url": link_btn['href'],
-                            "estado": "DISPONIBLE"
-                        })
+        # Convertir diccionario a lista ordenada por hora
+        lista_final = list(partidos_dict.values())
+        lista_final.sort(key=lambda x: x['time'])
 
-        # Guardar resultados
-        with open('eventos.json', 'w', encoding='utf-8') as f:
-            json.dump(lista_final, f, ensure_ascii=False, indent=4)
+        print(f"✅ Procesados: {len(lista_final)} partidos únicos.")
+
+        # SUBIR A GITHUB GIST
+        print("📤 Subiendo a GitHub Gist...")
         
-        print(f"✅ Proceso terminado. Encontrados: {len(lista_final)}")
+        url_api = f"https://api.github.com/gists/{GIST_ID}"
+        headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+        payload = {
+            "files": {
+                "eventos.json": {
+                    "content": json.dumps(lista_final, indent=2, ensure_ascii=False)
+                }
+            }
+        }
+        
+        r = requests.patch(url_api, headers=headers, json=payload)
+        if r.status_code == 200:
+            print("🚀 ¡Actualización exitosa en la nube!")
+        else:
+            print(f"❌ Error subiendo: {r.text}")
 
     except Exception as e:
-        print(f"❌ Error al conectar: {e}")
+        print(f"❌ Error crítico: {e}")
 
 if __name__ == "__main__":
-    actualizar_streamtp()
+    actualizar_datos()
