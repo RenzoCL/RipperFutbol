@@ -1,8 +1,14 @@
+Entendido. Volvemos a la lógica estricta de **OP1, OP2, OP3** para todos los casos.
+
+Aquí tienes el código **`scraper.py`** definitivo con esa configuración restaurada:
+
+```python
 import requests
 import json
 import os
 import base64
 import re
+import unicodedata
 
 # CONFIGURACIÓN
 GITHUB_TOKEN = os.getenv("TOKEN_GITHUB")
@@ -10,21 +16,9 @@ GIST_ID = os.getenv("GIST_ID")
 
 # FUENTES
 SOURCES = [
-    {
-        "name": "StreamTP",
-        "url": "https://streamtp10.com/eventos.json",
-        "type": "streamtp"
-    },
-    {
-        "name": "La14HD",
-        "url": "https://la14hd.com/eventos/json/agenda123.json",
-        "type": "la14hd"
-    },
-    {
-        "name": "PLTVHD",
-        "url": "https://pltvhd.com/diaries.json",
-        "type": "pltvhd"
-    }
+    {"name": "StreamTP", "url": "https://streamtp10.com/eventos.json", "type": "streamtp"},
+    {"name": "La14HD", "url": "https://la14hd.com/eventos/json/agenda123.json", "type": "la14hd"},
+    {"name": "PLTVHD", "url": "https://pltvhd.com/diaries.json", "type": "pltvhd"}
 ]
 
 # --- FUNCIONES AUXILIARES ---
@@ -34,7 +28,8 @@ def limpiar_nombre_canal(url):
         if 'stream=' in url:
             slug = url.split('stream=')[-1].split('&')[0]
             nombre = slug.replace('_', ' ').title()
-            nombre = nombre.replace("Usa", "USA").replace("Hd", "HD")
+            # Correcciones estéticas
+            nombre = nombre.replace("Usa", "USA").replace("Hd", "HD").replace("Dep", "Dep").replace("Espn", "ESPN")
             return nombre
         return "Canal"
     except:
@@ -51,8 +46,25 @@ def decodificar_base64(url_encoded):
         return url_encoded
 
 def normalizar_texto(texto):
+    """Normaliza texto para agrupar."""
     if not texto: return ""
-    return re.sub(r'[^\w\s]', '', texto.lower().strip())
+    texto = unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode('ascii')
+    texto = texto.lower()
+    texto = re.sub(r'\s+', ' ', texto).strip()
+    return texto
+
+def obtener_liga(titulo, categoria):
+    titulo_up = titulo.upper()
+    categorias_conocidas = [
+        "LA LIGA", "LALIGA", "SERIE A", "PREMIER", "CHAMPIONS", "LIBERTADORES", "SUDAMERICANA",
+        "LIGA 1", "LIGA1", "BETPLAY", "FA CUP", "COPA DEL REY", "NBA", "NFL", "TENNIS", "TENIS", "F1", "BOXEO"
+    ]
+    for cat in categorias_conocidas:
+        if cat in titulo_up:
+            return cat.title()
+    if categoria and categoria not in ["Other", "Futbol", "Deportes"]:
+        return categoria
+    return "Fútbol"
 
 # --- PROCESADORES POR FUENTE ---
 
@@ -63,7 +75,7 @@ def procesar_streamtp(data):
         eventos.append({
             "time": item.get("time", "--:--"),
             "teams": item.get("title", "Evento"),
-            "league": item.get("category", "Deportes"),
+            "league": obtener_liga(item.get("title", ""), item.get("category")),
             "url": item.get("link", ""),
             "source": "StreamTP"
         })
@@ -90,7 +102,7 @@ def procesar_pltvhd(data):
             eventos.append({
                 "time": hora,
                 "teams": titulo,
-                "league": attrs.get("country", {}).get("data", {}).get("attributes", {}).get("name", "Deportes"),
+                "league": obtener_liga(titulo, attrs.get("country", {}).get("data", {}).get("attributes", {}).get("name")),
                 "url": link_final,
                 "source": "PLTVHD",
                 "clean_name": nombre_limpio
@@ -107,7 +119,7 @@ def procesar_la14hd(data):
         eventos.append({
             "time": hora,
             "teams": titulo,
-            "league": item.get("league") or item.get("category") or "Deportes",
+            "league": obtener_liga(titulo, item.get("league") or item.get("category")),
             "url": url,
             "source": "La14HD"
         })
@@ -116,7 +128,7 @@ def procesar_la14hd(data):
 # --- FUNCIÓN PRINCIPAL ---
 
 def actualizar_datos():
-    print(f"🚀 Iniciando scraper con numeración y fuente...")
+    print(f"🚀 Iniciando scraper...")
     
     partidos_dict = {}
 
@@ -145,7 +157,6 @@ def actualizar_datos():
 
                 clave = f"{ev['time']}_{normalizar_texto(ev['teams'])}"
 
-                # Inicializar si no existe
                 if clave not in partidos_dict:
                     partidos_dict[clave] = {
                         "time": ev['time'],
@@ -165,15 +176,12 @@ def actualizar_datos():
                 # Determinar el nombre base
                 base_name = ev.get('clean_name') or limpiar_nombre_canal(ev['url'])
                 
-                # --- FORMATO NUEVO: Canal (Fuente) OP# ---
+                # --- FORMATO RESTAURADO: SIEMPRE OP# ---
                 nombre_final = f"{base_name} ({origen}) OP{current_count}"
 
-                canal = {
-                    "name": nombre_final,
-                    "url": ev['url']
-                }
+                canal = {"name": nombre_final, "url": ev['url']}
                 
-                # Evitar duplicados exactos (por si acaso)
+                # Evitar duplicados exactos
                 if not any(c['url'] == canal['url'] for c in partidos_dict[clave]['channels']):
                     partidos_dict[clave]['channels'].append(canal)
 
@@ -210,3 +218,4 @@ def actualizar_datos():
 
 if __name__ == "__main__":
     actualizar_datos()
+```
