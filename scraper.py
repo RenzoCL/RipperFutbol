@@ -18,12 +18,12 @@ SOURCES = [
     {
         "name": "La14HD",
         "url": "https://la14hd.com/eventos/json/agenda123.json",
-        "type": "la14hd" # Asumimos estructura similar a streamtp o simple
+        "type": "la14hd"
     },
     {
         "name": "PLTVHD",
         "url": "https://pltvhd.com/diaries.json",
-        "type": "pltvhd" # Estructura compleja con Base64
+        "type": "pltvhd"
     }
 ]
 
@@ -31,7 +31,6 @@ SOURCES = [
 
 def limpiar_nombre_canal(url):
     try:
-        # Intenta extraer el nombre del parámetro 'stream'
         if 'stream=' in url:
             slug = url.split('stream=')[-1].split('&')[0]
             nombre = slug.replace('_', ' ').title()
@@ -42,17 +41,13 @@ def limpiar_nombre_canal(url):
         return "Canal"
 
 def decodificar_base64(url_encoded):
-    """Decodifica links tipo: /embed/eventos.html?r=aHR0cHM..."""
     try:
         if '?r=' in url_encoded:
-            # Extraer la parte codificada
             encoded_part = url_encoded.split('?r=')[-1]
-            # Decodificar
             decoded_bytes = base64.b64decode(encoded_part)
             return decoded_bytes.decode('utf-8')
         return url_encoded
-    except Exception as e:
-        # Si falla, devolver el original
+    except:
         return url_encoded
 
 def normalizar_texto(texto):
@@ -63,91 +58,76 @@ def normalizar_texto(texto):
 
 def procesar_streamtp(data):
     eventos = []
-    # Estructura: Lista directa [{}]
     lista = data if isinstance(data, list) else []
-    
     for item in lista:
         eventos.append({
             "time": item.get("time", "--:--"),
             "teams": item.get("title", "Evento"),
             "league": item.get("category", "Deportes"),
-            "url": item.get("link", "")
+            "url": item.get("link", ""),
+            "source": "StreamTP"
         })
     return eventos
 
 def procesar_pltvhd(data):
     eventos = []
-    # Estructura: { "data": [ { "attributes": { ... } } ] }
     lista = data.get("data", [])
-    
     for item in lista:
         attrs = item.get("attributes", {})
         hora = attrs.get("diary_hour", "--:--")
-        # Limpiar hora si tiene segundos (18:00:00 -> 18:00)
         if len(hora) > 5: hora = hora[:5]
-        
         titulo = attrs.get("diary_description", "Evento")
         
-        # Procesar embeds (canales)
         embeds = attrs.get("embeds", {}).get("data", [])
         for emb in embeds:
             emb_attrs = emb.get("attributes", {})
             link_raw = emb_attrs.get("embed_iframe", "")
-            
-            # DECODIFICAR BASE64
             link_final = decodificar_base64(link_raw)
-            
-            # Si el link es relativo (/embed/...), convertirlo en absoluto
-            if link_final.startswith('/'):
-                link_final = "https://pltvhd.com" + link_final
+            if link_final.startswith('/'): link_final = "https://pltvhd.com" + link_final
+
+            nombre_limpio = emb_attrs.get("embed_name", "Canal").split('|')[0].strip()
 
             eventos.append({
                 "time": hora,
                 "teams": titulo,
                 "league": attrs.get("country", {}).get("data", {}).get("attributes", {}).get("name", "Deportes"),
-                "url": link_final
+                "url": link_final,
+                "source": "PLTVHD",
+                "clean_name": nombre_limpio
             })
-            
     return eventos
 
 def procesar_la14hd(data):
-    # Asumimos que puede ser lista directa o con 'data'
     lista = data if isinstance(data, list) else data.get("data", [])
     eventos = []
-    
     for item in lista:
-        # Intenta varios nombres de campo posibles
         hora = item.get("time") or item.get("hour") or "--:--"
         titulo = item.get("title") or item.get("teams") or item.get("name") or "Evento"
         url = item.get("url") or item.get("link") or ""
-        
         eventos.append({
             "time": hora,
             "teams": titulo,
             "league": item.get("league") or item.get("category") or "Deportes",
-            "url": url
+            "url": url,
+            "source": "La14HD"
         })
     return eventos
 
 # --- FUNCIÓN PRINCIPAL ---
 
 def actualizar_datos():
-    print(f"🚀 Iniciando scraper multi-fuente universal...")
+    print(f"🚀 Iniciando scraper con numeración y fuente...")
     
-    # Diccionario para agrupar
     partidos_dict = {}
 
     for source in SOURCES:
         print(f"🔍 Obteniendo: {source['name']}...")
         try:
             response = requests.get(source['url'], timeout=15)
-            if response.status_code != 200:
-                print(f"   ❌ Error HTTP: {response.status_code}")
-                continue
+            if response.status_code != 200: continue
                 
             data = response.json()
             
-            # SELECCIONAR PROCESADOR
             if source['type'] == 'streamtp':
                 eventos = procesar_streamtp(data)
             elif source['type'] == 'pltvhd':
@@ -157,38 +137,56 @@ def actualizar_datos():
             else:
                 eventos = []
 
-            print(f"   ✅ {len(eventos)} items procesados.")
+            print(f"   ✅ {len(eventos)} items.")
 
-            # --- AGRUPACIÓN ---
+            # --- AGRUPACIÓN CON CONTADOR ---
             for ev in eventos:
                 if not ev['url']: continue
 
                 clave = f"{ev['time']}_{normalizar_texto(ev['teams'])}"
 
+                # Inicializar si no existe
                 if clave not in partidos_dict:
                     partidos_dict[clave] = {
                         "time": ev['time'],
                         "teams": ev['teams'],
                         "league": ev['league'],
-                        "channels": []
+                        "channels": [],
+                        "counters": {} # Contador interno por fuente
                     }
                 
-                # Etiquetar canal con su origen
+                # Obtener el origen actual
+                origen = ev['source']
+                
+                # Incrementar contador para este origen
+                current_count = partidos_dict[clave]['counters'].get(origen, 0) + 1
+                partidos_dict[clave]['counters'][origen] = current_count
+
+                # Determinar el nombre base
+                base_name = ev.get('clean_name') or limpiar_nombre_canal(ev['url'])
+                
+                # --- FORMATO NUEVO: Canal (Fuente) OP# ---
+                nombre_final = f"{base_name} ({origen}) OP{current_count}"
+
                 canal = {
-                    "name": f"{limpiar_nombre_canal(ev['url'])} ({source['name'][:3].upper()})",
+                    "name": nombre_final,
                     "url": ev['url']
                 }
                 
-                # Evitar duplicados exactos de URL
+                # Evitar duplicados exactos (por si acaso)
                 if not any(c['url'] == canal['url'] for c in partidos_dict[clave]['channels']):
                     partidos_dict[clave]['channels'].append(canal)
 
         except Exception as e:
-            print(f"   ❌ Error procesando {source['name']}: {e}")
+            print(f"   ❌ Error: {e}")
 
     # ORDENAR Y GUARDAR
     lista_final = list(partidos_dict.values())
     lista_final.sort(key=lambda x: x['time'])
+    
+    # Eliminamos el contador interno antes de guardar el JSON
+    for p in lista_final:
+        if 'counters' in p: del p['counters']
     
     print(f"📊 Total eventos unificados: {len(lista_final)}")
 
