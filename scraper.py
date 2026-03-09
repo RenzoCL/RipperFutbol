@@ -23,66 +23,46 @@ SOURCES = [
 
 # --- DICCIONARIOS DE MAPEO ---
 
-# 1. Sinónimos de Títulos (Para agrupar partidos con nombres distintos)
-# Si el título contiene la clave, se renombra al valor para agrupar.
-TITLE_SYNONYMS = {
-    "LALIGA 2": "LaLiga SmartBank",
-    "LALIGA SMARTBANK": "LaLiga SmartBank",
-    "SMARTBANK": "LaLiga SmartBank",
-    "LALIGA HYPERMOTION": "LaLiga HyperMotion", # Liga 1 española
-    "HYPERMOTION": "LaLiga HyperMotion"
-}
+# 1. Sinónimos de Títulos (Reglas de reemplazo para unificar partidos)
+# Clave = Texto a buscar (en mayúsculas) -> Valor = Texto final correcto
+TITLE_REPLACEMENTS = [
+    ("LALIGA 2", "LaLiga SmartBank"),
+    ("LALIGA SMARTBANK", "LaLiga SmartBank"),
+    ("LALIGA HYPERMOTION", "LaLiga HyperMotion"),
+    ("LIGA 1 MAX", "Liga 1 MAX") # Normalizar mayúsculas
+]
 
-# 2. Sinónimos de Nombres de Canales (Para nombres bonitos)
+# 2. Sinónimos de Nombres de Canales
 CHANNEL_NAMES = {
-    "laligahypermotion": "LaLiga TV",
-    "hypermotion1": "LaLiga TV",
-    "winsportsplus": "Win Sports +",
-    "winsports2": "Win Sports 2",
-    "winplus": "Win Sports +",
-    "winplus2": "Win Sports 2",
-    "espnplus1": "ESPN +",
-    "espnplus2": "ESPN +",
+    "laligahypermotion": "LaLiga TV", "hypermotion1": "LaLiga TV",
+    "winsportsplus": "Win Sports +", "winsports2": "Win Sports 2",
+    "winplus": "Win Sports +", "winplus2": "Win Sports 2",
+    "espnplus1": "ESPN +", "espnplus2": "ESPN +",
     "espn1_nl": "ESPN NL",
-    "dsports": "DSports",
-    "dsports2": "DSports 2",
-    "disney1": "Disney+",
-    "disney2": "Disney+",
-    "disney3": "Disney+",
-    "disney4": "Disney+",
-    "disney5": "Disney+",
-    "espn3": "ESPN 3",
-    "espn3mx": "ESPN 3 MX",
-    "espn2": "ESPN 2",
-    "fox_deportes_usa": "Fox Deportes",
-    "foxdeportes": "Fox Deportes",
+    "dsports": "DSports", "dsports2": "DSports 2",
+    "disney1": "Disney+", "disney2": "Disney+", "disney3": "Disney+", "disney4": "Disney+", "disney5": "Disney+",
+    "espn3": "ESPN 3", "espn3mx": "ESPN 3 MX", "espn2": "ESPN 2",
+    "fox_deportes_usa": "Fox Deportes", "foxdeportes": "Fox Deportes",
     "tntsportschile": "TNT Sports Chile",
     "liga1max": "Liga 1 MAX",
     "tycsports": "TyC Sports",
-    "fanatiz1": "Fanatiz",
-    "fanatiz2": "Fanatiz",
-    "fanatiz3": "Fanatiz",
-    "fanatiz4": "Fanatiz",
+    "fanatiz1": "Fanatiz", "fanatiz2": "Fanatiz", "fanatiz3": "Fanatiz", "fanatiz4": "Fanatiz",
     "max1": "Max",
     "espndeportes": "ESPN Deportes",
     "sky_sports_laliga": "Sky LaLiga",
-    "even1": "Futbol Canal",
-    "even2": "NBA League Pass",
-    "even4": "Tigo Sports",
-    "even10": "FUTV",
+    "even1": "Futbol Canal", "even2": "NBA League Pass", "even4": "Tigo Sports", "even10": "FUTV",
     "ecdf_ligapro": "ECDF LigaPro"
 }
 
 # --- FUNCIONES AUXILIARES ---
 
-def obtener_nombre_limpio(url, default_name):
+def obtener_nombre_canal_limpio(url, default_name):
     try:
         if 'stream=' in url:
             slug = url.split('stream=')[-1].split('&')[0].lower()
             if slug in CHANNEL_NAMES:
                 return CHANNEL_NAMES[slug]
-    except:
-        pass
+    except: pass
     return default_name
 
 def decodificar_base64(url_encoded):
@@ -92,38 +72,41 @@ def decodificar_base64(url_encoded):
             decoded_bytes = base64.b64decode(encoded_part)
             return decoded_bytes.decode('utf-8')
         return url_encoded
-    except:
-        return url_encoded
+    except: return url_encoded
 
-def limpiar_titulo(texto):
+def limpiar_texto(texto):
     if not texto: return ""
-    try:
-        t = str(texto).strip()
-        t = t.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
-        t = re.sub(r'\s+', ' ', t).strip()
-        return t
-    except:
-        return str(texto)
+    t = str(texto).strip()
+    t = t.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+    t = re.sub(r'\s+', ' ', t).strip()
+    return t
 
 def normalizar_para_agrupar(texto):
-    """Convierte a minúsculas, quita tildes y busca sinónimos."""
     if not texto: return ""
-    t = limpiar_titulo(texto).lower()
+    t = limpiar_texto(texto).lower()
     t = t.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
     return t
 
 def obtener_titulo_estandar(titulo_original):
-    """Busca si el título coincide con un sinónimo conocido y devuelve el nombre estándar."""
-    titulo_up = limpiar_titulo(titulo_original).upper()
-    for key, value in TITLE_SYNONYMS.items():
-        if key in titulo_up:
-            # Reemplaza la parte coincidente por el valor estándar
-            # Ejemplo: "LaLiga 2: Almería" -> "LaLiga SmartBank: Almería"
-            return titulo_original.replace(key, value).replace(key.title(), value) 
-    return titulo_original
+    """
+    Aplica reglas de reemplazo para unificar nombres de ligas.
+    Ej: Convierte "LaLiga 2: Almería..." -> "LaLiga SmartBank: Almería..."
+    """
+    titulo_limpio = limpiar_texto(titulo_original)
+    titulo_up = titulo_limpio.upper()
+    
+    # Buscar la primera regla que coincida
+    for buscar, reemplazar in TITLE_REPLACEMENTS:
+        if buscar in titulo_up:
+            # Reemplazar manteniendo el resto del título
+            # Usamos replace sobre la versión upper para asegurar match, pero devolvemos el limpio
+            # Lo más seguro es reconstruir:
+            return titulo_limpio.replace(buscar.lower(), reemplazar).replace(buscar.title(), reemplazar).replace(buscar, reemplazar)
+            
+    return titulo_limpio
 
 def obtener_liga(titulo, categoria):
-    titulo_up = limpiar_titulo(titulo).upper()
+    titulo_up = limpiar_texto(titulo).upper()
     categorias_conocidas = [
         "LA LIGA", "LALIGA", "SERIE A", "PREMIER", "CHAMPIONS", "LIBERTADORES", "SUDAMERICANA",
         "LIGA 1", "LIGA1", "BETPLAY", "FA CUP", "COPA DEL REY", "NBA", "NFL", "TENNIS", "TENIS", "F1", "BOXEO"
@@ -144,14 +127,16 @@ def procesar_streamtp(data):
         try:
             url = str(item.get("link", ""))
             raw_name = limpiar_nombre_canal_simple(url)
-            clean_name = obtener_nombre_limpio(url, raw_name)
+            clean_name = obtener_nombre_canal_limpio(url, raw_name)
             
-            # APLICAR REGLA DE TÍTULO
-            titulo_final = obtener_titulo_estandar(item.get("title", "Evento"))
+            # 1. Limpiar título
+            titulo_raw = str(item.get("title", "Evento"))
+            # 2. Estandarizar (Aplicar reglas de sinónimos)
+            titulo_final = obtener_titulo_estandar(titulo_raw)
             
             eventos.append({
                 "time": str(item.get("time", "--:--")),
-                "teams": limpiar_titulo(titulo_final),
+                "teams": titulo_final,
                 "league": obtener_liga(titulo_final, item.get("category")),
                 "url": url,
                 "source": "StreamTP",
@@ -169,8 +154,8 @@ def procesar_pltvhd(data):
             hora = str(attrs.get("diary_hour", "--:--"))
             if len(hora) > 5: hora = hora[:5]
             
-            # APLICAR REGLA DE TÍTULO
-            titulo_final = obtener_titulo_estandar(attrs.get("diary_description", "Evento"))
+            titulo_raw = str(attrs.get("diary_description", "Evento"))
+            titulo_final = obtener_titulo_estandar(titulo_raw)
             
             embeds = attrs.get("embeds", {}).get("data", [])
             for emb in embeds:
@@ -180,11 +165,11 @@ def procesar_pltvhd(data):
                 if link_final.startswith('/'): link_final = "https://pltvhd.com" + link_final
 
                 raw_name = str(emb_attrs.get("embed_name", "Canal")).split('|')[0].strip()
-                clean_name = obtener_nombre_limpio(link_final, raw_name)
+                clean_name = obtener_nombre_canal_limpio(link_final, raw_name)
 
                 eventos.append({
                     "time": hora,
-                    "teams": limpiar_titulo(titulo_final),
+                    "teams": titulo_final,
                     "league": obtener_liga(titulo_final, attrs.get("country", {}).get("data", {}).get("attributes", {}).get("name")),
                     "url": link_final,
                     "source": "PLTVHD",
@@ -200,18 +185,16 @@ def procesar_la14hd(data):
         try:
             hora = str(item.get("time") or item.get("hour") or "--:--")
             titulo_raw = str(item.get("title") or item.get("teams") or item.get("name") or "Evento")
-            
-            # APLICAR REGLA DE TÍTULO
             titulo_final = obtener_titulo_estandar(titulo_raw)
             
             url = str(item.get("url") or item.get("link") or "")
             
             raw_name = limpiar_nombre_canal_simple(url)
-            clean_name = obtener_nombre_limpio(url, raw_name)
+            clean_name = obtener_nombre_canal_limpio(url, raw_name)
 
             eventos.append({
                 "time": hora,
-                "teams": limpiar_titulo(titulo_final),
+                "teams": titulo_final,
                 "league": obtener_liga(titulo_final, item.get("league") or item.get("category")),
                 "url": url,
                 "source": "La14HD",
@@ -227,13 +210,12 @@ def limpiar_nombre_canal_simple(url):
             nombre = slug.replace('_', ' ').title()
             return nombre
         return "Canal"
-    except:
-        return "Canal"
+    except: return "Canal"
 
 # --- FUNCIÓN PRINCIPAL ---
 
 def actualizar_datos():
-    print(f"🚀 Iniciando scraper con sinónimos de ligas...")
+    print(f"🚀 Iniciando scraper con sinónimos...")
     
     partidos_dict = {}
 
@@ -242,34 +224,26 @@ def actualizar_datos():
         try:
             response = requests.get(source['url'], timeout=15)
             if response.status_code != 200: continue
-            
-            try:
-                data = response.json()
+            try: data = response.json()
             except:
                 text = response.content.decode('utf-8', errors='ignore')
                 data = json.loads(text)
             
-            if source['type'] == 'streamtp':
-                eventos = procesar_streamtp(data)
-            elif source['type'] == 'pltvhd':
-                eventos = procesar_pltvhd(data)
-            elif source['type'] == 'la14hd':
-                eventos = procesar_la14hd(data)
-            else:
-                eventos = []
+            if source['type'] == 'streamtp': eventos = procesar_streamtp(data)
+            elif source['type'] == 'pltvhd': eventos = procesar_pltvhd(data)
+            elif source['type'] == 'la14hd': eventos = procesar_la14hd(data)
+            else: eventos = []
 
             print(f"   ✅ {len(eventos)} items.")
 
             for ev in eventos:
                 if not ev['url']: continue
-
-                # Clave de agrupación ESTRICTA
                 clave = f"{ev['time']}_{normalizar_para_agrupar(ev['teams'])}"
 
                 if clave not in partidos_dict:
                     partidos_dict[clave] = {
                         "time": ev['time'],
-                        "teams": ev['teams'],
+                        "teams": ev['teams"],
                         "league": ev['league'],
                         "channels": [],
                         "counters": {}
@@ -281,7 +255,6 @@ def actualizar_datos():
 
                 base_name = ev.get('clean_name')
                 nombre_final = f"{base_name} ({origen}) OP{current_count}"
-
                 canal = {"name": nombre_final, "url": ev['url']}
                 
                 if not any(c['url'] == canal['url'] for c in partidos_dict[clave]['channels']):
@@ -311,12 +284,9 @@ def actualizar_datos():
     
     try:
         r = requests.patch(url_api, headers=headers, json=payload)
-        if r.status_code == 200:
-            print("🚀 ¡Actualización exitosa!")
-        else:
-            print(f"❌ Error subiendo: {r.text}")
-    except Exception as e:
-        print(f"❌ Excepción subiendo: {e}")
+        if r.status_code == 200: print("🚀 ¡Actualización exitosa!")
+        else: print(f"❌ Error subiendo: {r.text}")
+    except Exception as e: print(f"❌ Excepción subiendo: {e}")
 
 if __name__ == "__main__":
     actualizar_datos()
