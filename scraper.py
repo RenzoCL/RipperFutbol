@@ -5,7 +5,7 @@ import base64
 import re
 import sys
 
-# SOLUCIÓN: Asegurar que Python maneje bien los caracteres especiales
+# SOLUCIÓN: Forzar UTF-8 para evitar errores de codificación
 if sys.stdout.encoding != 'utf-8':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -44,24 +44,23 @@ def decodificar_base64(url_encoded):
     except:
         return url_encoded
 
-def normalizar_texto_seguro(texto):
-    """Versión segura que no falla con tildes."""
+def normalizar_texto(texto):
+    """Limpieza profunda para agrupar bien."""
     if not texto: return ""
     try:
         t = str(texto).lower().strip()
+        # 1. Reemplazar saltos de línea y tabulaciones por espacio
+        t = t.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+        # 2. Quitar tildes (para agrupar 'Almería' con 'Almeria')
         t = t.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
-        t = t.replace("ñ", "n")
-        t = re.sub(r'\s+', ' ', t) # quitar espacios dobles
+        # 3. Quitar múltiples espacios seguidos
+        t = re.sub(r'\s+', ' ', t).strip()
         return t
     except:
         return str(texto).lower()
 
 def obtener_liga(titulo, categoria):
-    try:
-        titulo_up = str(titulo).upper()
-    except:
-        titulo_up = ""
-        
+    titulo_up = str(titulo).upper()
     categorias_conocidas = [
         "LA LIGA", "LALIGA", "SERIE A", "PREMIER", "CHAMPIONS", "LIBERTADORES", "SUDAMERICANA",
         "LIGA 1", "LIGA1", "BETPLAY", "FA CUP", "COPA DEL REY", "NBA", "NFL", "TENNIS", "TENIS", "F1", "BOXEO"
@@ -82,7 +81,7 @@ def procesar_streamtp(data):
         try:
             eventos.append({
                 "time": str(item.get("time", "--:--")),
-                "teams": str(item.get("title", "Evento")),
+                "teams": str(item.get("title", "Evento")).replace('\n', ' '),
                 "league": obtener_liga(item.get("title", ""), item.get("category")),
                 "url": str(item.get("link", "")),
                 "source": "StreamTP"
@@ -98,7 +97,7 @@ def procesar_pltvhd(data):
             attrs = item.get("attributes", {})
             hora = str(attrs.get("diary_hour", "--:--"))
             if len(hora) > 5: hora = hora[:5]
-            titulo = str(attrs.get("diary_description", "Evento"))
+            titulo = str(attrs.get("diary_description", "Evento")).replace('\n', ' ')
             
             embeds = attrs.get("embeds", {}).get("data", [])
             for emb in embeds:
@@ -126,7 +125,7 @@ def procesar_la14hd(data):
     for item in lista:
         try:
             hora = str(item.get("time") or item.get("hour") or "--:--")
-            titulo = str(item.get("title") or item.get("teams") or item.get("name") or "Evento")
+            titulo = str(item.get("title") or item.get("teams") or item.get("name") or "Evento").replace('\n', ' ')
             url = str(item.get("url") or item.get("link") or "")
             eventos.append({
                 "time": hora,
@@ -151,7 +150,6 @@ def actualizar_datos():
             response = requests.get(source['url'], timeout=15)
             if response.status_code != 200: continue
             
-            # Intentar decodificar JSON forzando UTF-8
             try:
                 data = response.json()
             except:
@@ -172,7 +170,8 @@ def actualizar_datos():
             for ev in eventos:
                 if not ev['url']: continue
 
-                clave = f"{ev['time']}_{normalizar_texto_seguro(ev['teams'])}"
+                # Clave de agrupación mejorada
+                clave = f"{ev['time']}_{normalizar_texto(ev['teams'])}"
 
                 if clave not in partidos_dict:
                     partidos_dict[clave] = {
