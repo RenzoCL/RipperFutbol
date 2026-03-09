@@ -23,13 +23,12 @@ SOURCES = [
 
 # --- DICCIONARIOS DE MAPEO ---
 
-# 1. Sinónimos de Títulos (Reglas de reemplazo para unificar partidos)
-# Clave = Texto a buscar (en mayúsculas) -> Valor = Texto final correcto
-TITLE_REPLACEMENTS = [
-    ("LALIGA 2", "LaLiga SmartBank"),
-    ("LALIGA SMARTBANK", "LaLiga SmartBank"),
-    ("LALIGA HYPERMOTION", "LaLiga HyperMotion"),
-    ("LIGA 1 MAX", "Liga 1 MAX") # Normalizar mayúsculas
+# 1. Reglas de Sinónimos para Títulos (Regex)
+# Clave = Expresión regular a buscar, Valor = Texto correcto
+TITLE_REGEX_RULES = [
+    (r"LaLiga\s*2", "LaLiga SmartBank"),
+    (r"LaLiga\s*SmartBank", "LaLiga SmartBank"),
+    (r"LaLiga\s*Hypermotion", "LaLiga HyperMotion")
 ]
 
 # 2. Sinónimos de Nombres de Canales
@@ -89,19 +88,15 @@ def normalizar_para_agrupar(texto):
 
 def obtener_titulo_estandar(titulo_original):
     """
-    Aplica reglas de reemplazo para unificar nombres de ligas.
-    Ej: Convierte "LaLiga 2: Almería..." -> "LaLiga SmartBank: Almería..."
+    Aplica reglas Regex para unificar nombres.
+    Ej: "LaLiga 2: Almería" -> "LaLiga SmartBank: Almería"
     """
     titulo_limpio = limpiar_texto(titulo_original)
-    titulo_up = titulo_limpio.upper()
     
-    # Buscar la primera regla que coincida
-    for buscar, reemplazar in TITLE_REPLACEMENTS:
-        if buscar in titulo_up:
-            # Reemplazar manteniendo el resto del título
-            # Usamos replace sobre la versión upper para asegurar match, pero devolvemos el limpio
-            # Lo más seguro es reconstruir:
-            return titulo_limpio.replace(buscar.lower(), reemplazar).replace(buscar.title(), reemplazar).replace(buscar, reemplazar)
+    # Aplicar cada regla regex
+    for patron, reemplazo in TITLE_REGEX_RULES:
+        # re.sub reemplaza todas las apariciones que coincidan con el patrón
+        titulo_limpio = re.sub(patron, reemplazo, titulo_limpio, flags=re.IGNORECASE)
             
     return titulo_limpio
 
@@ -129,9 +124,7 @@ def procesar_streamtp(data):
             raw_name = limpiar_nombre_canal_simple(url)
             clean_name = obtener_nombre_canal_limpio(url, raw_name)
             
-            # 1. Limpiar título
             titulo_raw = str(item.get("title", "Evento"))
-            # 2. Estandarizar (Aplicar reglas de sinónimos)
             titulo_final = obtener_titulo_estandar(titulo_raw)
             
             eventos.append({
@@ -215,7 +208,7 @@ def limpiar_nombre_canal_simple(url):
 # --- FUNCIÓN PRINCIPAL ---
 
 def actualizar_datos():
-    print(f"🚀 Iniciando scraper con sinónimos...")
+    print(f"🚀 Iniciando scraper con Regex Fix...")
     
     partidos_dict = {}
 
