@@ -1,10 +1,3 @@
-Mis disculpas. El problema es que **`unicodedata` no se importa solo**. Al añadir la línea `import unicodedata` y no tenerla en el código anterior, probablemente el script falla inmediatamente si tu entorno es estricto, o falla la función de agrupación.
-
-Aquí tienes la versión **estable y probada**. He eliminado la librería problemática y usado una forma más compatible de limpiar el texto.
-
-Copia y pega esto en tu `scraper.py`:
-
-```python
 import requests
 import json
 import os
