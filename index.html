@@ -53,7 +53,6 @@
 
         /* Overlay de Advertencia (Salir) */
         .exit-overlay {
-            /* Subtle bottom toast instead of full-screen modal */
             position: absolute;
             bottom: 20px;
             left: 50%;
@@ -117,6 +116,10 @@
         .event-time { color: var(--active-green); font-weight: bold; font-size: 0.9rem; }
         .event-name { font-size: 1.1rem; margin: 5px 0; }
         .event-league { color: #888; font-size: 0.8rem; }
+        
+        /* Estilo especial para mensaje de vacío */
+        .empty-state { text-align: center; padding: 40px 20px; color: #666; }
+        .empty-state h2 { color: #555; margin-bottom: 10px; }
 
         .remote-control { display: none; }
 
@@ -156,7 +159,6 @@
             </div>
         </div>
 
-        <!-- OVERLAY DE ADVERTENCIA (NUEVO) -->
         <div class="exit-overlay" id="exit-overlay">
             <div class="exit-box">
                 <div>Presione <strong>ESC</strong> nuevamente para salir</div>
@@ -200,8 +202,6 @@
         let volume = 50;
         let volHideTimeout = null;
         let isWaitingForPlay = false;
-        
-        // Variables para el control de salida
         let isWaitingForExitConfirm = false;
         let exitTimeout = null;
 
@@ -209,15 +209,28 @@
         function init() {
             updateClock();
             setInterval(updateClock, 1000);
-            currentList = [{ time: "--:--", teams: "Cargando...", league: "Actualizando", channels: [{name:"Wait", url:"#"}] }];
-            renderAgenda();
-            tryUpdate();
+            // Mostrar mensaje inicial amigable
+            showEmptyState("Cargando agenda...");
             setupKeyListener();
-            
-            // Intentar recuperar foco constantemente si estamos en video
+            keepFocusAlive();
+            tryUpdate();
+        }
+        
+        // --- FUNCIONES DE UI ---
+        function showEmptyState(message) {
+             const container = document.getElementById('event-list');
+             container.innerHTML = `
+                <div class="empty-state">
+                    <h2>${message}</h2>
+                    <p>Esperando conexión...</p>
+                </div>
+             `;
+        }
+
+        // --- MANTENER FOCO VIVO ---
+        function keepFocusAlive() {
             setInterval(() => {
-                if (isAppRunning && !isMenuOpen && !isModalOpen && !isWaitingForPlay) {
-                     // Recupera foco solo si no hay overlays activos
+                if (isAppRunning && !isModalOpen && !isWaitingForExitConfirm && !isWaitingForPlay) {
                      if(!document.getElementById('exit-overlay').classList.contains('active')) {
                         window.focus();
                      }
@@ -228,33 +241,12 @@
         // --- DETECTOR DE TECLAS ---
         function setupKeyListener() {
             document.addEventListener('keydown', function(e) {
-                
-                // 1. ENCENDIDO
-                if (!isAppRunning) {
-                    powerOn();
-                    return; 
-                }
+                if (!isAppRunning) { powerOn(); return; }
 
-                // 2. TECLAS ESPECIALES
-                
-                // BACKSPACE = HOME (Siempre apaga)
-                if (e.key === 'Backspace') {
-                    e.preventDefault();
-                    handleRemote('home');
-                    return;
-                }
+                if (e.key === 'Backspace') { e.preventDefault(); handleRemote('home'); return; }
+                if (e.key === 'Escape') { e.preventDefault(); handleRemote('back'); return; }
 
-                // ESC = BACK (Lógica compleja)
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    handleRemote('back');
-                    return;
-                }
-
-                // 3. NAVEGACIÓN
-                if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.key) > -1) {
-                    e.preventDefault();
-                }
+                if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.key) > -1) e.preventDefault();
                 
                 switch(e.key) {
                     case 'ArrowUp': handleRemote('up'); break;
@@ -266,7 +258,7 @@
             });
         }
 
-        // --- LÓGICA DE ENCENDIDO / APAGADO ---
+        // --- ENCENDIDO / APAGADO ---
         function powerOn() {
             isAppRunning = true;
             document.getElementById('off-screen').classList.remove('active');
@@ -277,47 +269,56 @@
 
         function powerOff() {
             isAppRunning = false;
-            isMenuOpen = false;
-            isModalOpen = false;
-            isWaitingForPlay = false;
-            isWaitingForExitConfirm = false; // Resetear estado de salida
-            
+            isMenuOpen = false; isModalOpen = false;
+            isWaitingForPlay = false; isWaitingForExitConfirm = false;
             document.getElementById('tv-container').style.display = 'none';
             document.getElementById('off-screen').classList.add('active');
-            document.getElementById('off-screen').classList.remove('hidden');
-            document.getElementById('exit-overlay').classList.remove('active'); // Ocultar aviso
-            
+            document.getElementById('exit-overlay').classList.remove('active');
             document.getElementById('tv-screen').src = 'about:blank';
         }
 
-        // --- ACTUALIZACIÓN ---
+        // --- ACTUALIZACIÓN (MODIFICADO) ---
         async function tryUpdate() {
             const badge = document.getElementById('status-badge');
             badge.innerText = "ACTUALIZANDO...";
-            const timeoutId = setTimeout(() => badge.innerText = "LOCAL", 5000);
+            
             const GIST_RAW_URL = 'https://gist.githubusercontent.com/RenzoCL/7f56fdb7784efa4aa8e135f0968a0dc1/raw/eventos.json';
 
             try {
-                const response = await fetch(GIST_RAW_URL);
+                // Intento directo con random para evitar cache
+                let response = await fetch(GIST_RAW_URL + '?t=' + new Date().getTime());
+                
+                if (!response.ok) throw new Error("Direct fetch error");
+                
                 const data = await response.json();
-                clearTimeout(timeoutId);
+                
+                // --- LÓGICA DE LISTA VACÍA ---
                 if (data && data.length > 0) {
+                    // Hay eventos
                     currentList = data;
                     currentList.sort((a, b) => a.time.localeCompare(b.time));
                     renderAgenda();
                     badge.innerText = "EN VIVO";
                     badge.style.color = "#4ecca3";
+                } else {
+                    // La lista está vacía ([] viene del scraper)
+                    currentList = [];
+                    showEmptyState("No hay eventos deportivos por el momento");
+                    badge.innerText = "SIN EVENTOS";
+                    badge.style.color = "#f39c12"; // Naranja para alertar
                 }
+
             } catch (e) {
-                clearTimeout(timeoutId);
+                // Error de red
+                console.error("Error:", e);
+                showEmptyState("Error de conexión");
                 badge.innerText = "ERROR RED";
+                badge.style.color = "red";
             }
         }
 
-        // --- NAVEGACIÓN PRINCIPAL (LÓGICA MODIFICADA) ---
+        // --- NAVEGACIÓN ---
         function handleRemote(action) {
-            
-            // 1. Estamos viendo video y hay overlay de "Play"?
             if (isWaitingForPlay) {
                 if (action === 'ok') triggerPlay();
                 else if (action === 'back' || action === 'home') {
@@ -328,35 +329,23 @@
                 return;
             }
 
-            // 2. Hay un modal abierto?
-            if (isModalOpen) {
-                handleModalNav(action);
-                return;
+            if (isModalOpen) { handleModalNav(action); return; }
+
+            if ((action === 'up' || action === 'down' || action === 'left' || action === 'right') && isWaitingForExitConfirm) {
+                isWaitingForExitConfirm = false;
+                document.getElementById('exit-overlay').classList.remove('active');
+                clearTimeout(exitTimeout);
             }
 
-            // 3. Navegación normal
             switch(action) {
-                case 'home':
-                    // HOME siempre apaga
-                    powerOff();
-                    break;
-
+                case 'home': powerOff(); break;
                 case 'back':
-                    if (isMenuOpen) {
-                        // Si menú abierto -> Cerrar menú
-                        toggleMenu(false);
-                    } else {
-                        // Si menú cerrado -> Lógica de doble confirmación
-                        
-                        if (isWaitingForExitConfirm) {
-                            // Segunda vez que presiona -> APAGAR
-                            powerOff();
-                        } else {
-                            // Primera vez que presiona -> MOSTRAR AVISO
+                    if (isMenuOpen) toggleMenu(false);
+                    else {
+                        if (isWaitingForExitConfirm) powerOff();
+                        else {
                             isWaitingForExitConfirm = true;
                             document.getElementById('exit-overlay').classList.add('active');
-                            
-                            // Si espera 3 segundos sin presionar, ocultar aviso
                             clearTimeout(exitTimeout);
                             exitTimeout = setTimeout(() => {
                                 isWaitingForExitConfirm = false;
@@ -365,30 +354,11 @@
                         }
                     }
                     break;
-
-                case 'left':
-                    if (!isMenuOpen) toggleMenu(true);
-                    // Cancelar aviso de salir si navegamos
-                    if(isWaitingForExitConfirm) { isWaitingForExitConfirm = false; document.getElementById('exit-overlay').classList.remove('active'); clearTimeout(exitTimeout); }
-                    break;
-                case 'right':
-                    if (isMenuOpen) toggleMenu(false);
-                    // Cancelar aviso de salir si navegamos
-                    if(isWaitingForExitConfirm) { isWaitingForExitConfirm = false; document.getElementById('exit-overlay').classList.remove('active'); clearTimeout(exitTimeout); }
-                    break;
-                case 'ok':
-                    if (isMenuOpen) selectEvent(currentIndex);
-                    break;
-                case 'up': 
-                    if(isMenuOpen) navigate(-1); 
-                    // Cancelar aviso
-                    if(isWaitingForExitConfirm) { isWaitingForExitConfirm = false; document.getElementById('exit-overlay').classList.remove('active'); clearTimeout(exitTimeout); }
-                    break;
-                case 'down': 
-                    if(isMenuOpen) navigate(1); 
-                    // Cancelar aviso
-                    if(isWaitingForExitConfirm) { isWaitingForExitConfirm = false; document.getElementById('exit-overlay').classList.remove('active'); clearTimeout(exitTimeout); }
-                    break;
+                case 'left': if (!isMenuOpen) toggleMenu(true); break;
+                case 'right': if (isMenuOpen) toggleMenu(false); break;
+                case 'ok': if (isMenuOpen) selectEvent(currentIndex); break;
+                case 'up': if(isMenuOpen) navigate(-1); break;
+                case 'down': if(isMenuOpen) navigate(1); break;
             }
         }
 
@@ -399,6 +369,9 @@
         }
 
         function navigate(dir) {
+            // Evitar navegación si la lista está vacía
+            if (currentList.length === 0) return;
+            
             currentIndex += dir;
             if (currentIndex < 0) currentIndex = 0;
             if (currentIndex >= currentList.length) currentIndex = currentList.length - 1;
@@ -422,8 +395,7 @@
             const iframe = document.getElementById('tv-screen');
             let finalUrl = channel.url;
             if (!finalUrl.includes('autoplay')) finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'autoplay=1';
-            // Defer actually navigating the iframe until the user explicitly presses OK.
-            // That user gesture will allow audio to play in most browsers.
+
             iframe.dataset.pendingSrc = finalUrl;
             iframe.style.display = 'block';
             document.getElementById('channel-name').innerText = channel.name;
@@ -436,12 +408,10 @@
         
         function triggerPlay() {
             const iframe = document.getElementById('tv-screen');
-            // If we deferred the source, navigate now in response to the user action.
             if (iframe.dataset.pendingSrc) {
                 iframe.src = iframe.dataset.pendingSrc;
                 delete iframe.dataset.pendingSrc;
             } else {
-                // Fallback: briefly reload to trigger playback under user gesture.
                 const currentSrc = iframe.src;
                 iframe.src = 'about:blank';
                 setTimeout(() => iframe.src = currentSrc, 100);
@@ -487,7 +457,8 @@
             const container = document.getElementById('event-list');
             container.innerHTML = '';
             if(currentList.length === 0) {
-                 container.innerHTML = '<div class="event-item"><div class="event-name">No hay eventos</div></div>';
+                 // Esto se usará si por alguna razón llega vacío sin pasar por tryUpdate
+                 showEmptyState("No hay eventos");
                  return;
             }
             currentList.forEach((ev, idx) => {
