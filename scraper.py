@@ -5,7 +5,7 @@ import os
 # CONFIGURACIÓN (Lee los secrets que acabamos de crear)
 GITHUB_TOKEN = os.getenv("TOKEN_GITHUB")
 GIST_ID = os.getenv("GIST_ID")
-SOURCE_URL = "https://streamtp10.com/eventos.json"
+SOURCE_URL = "https://pltvhd.com/diaries.json"
 
 def limpiar_nombre_canal(url):
     try:
