@@ -5,12 +5,12 @@ import base64
 import re
 import sys
 
-# SOLUCIÓN: Forzar UTF-8
+# SOLUCION: Forzar UTF-8
 if sys.stdout.encoding != 'utf-8':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-# CONFIGURACIÓN
+# CONFIGURACION
 GITHUB_TOKEN = os.getenv("TOKEN_GITHUB")
 GIST_ID = os.getenv("GIST_ID")
 
@@ -23,15 +23,15 @@ SOURCES = [
 
 # --- DICCIONARIOS DE MAPEO ---
 
-# 1. Reglas de Sinónimos para Títulos (Regex)
-# Clave = Expresión regular a buscar, Valor = Texto correcto
+# 1. Reglas de Sinonimos para Titulos (Regex)
+# Clave = Expresion regular a buscar, Valor = Texto correcto
 TITLE_REGEX_RULES = [
     (r"LaLiga\s*2", "LaLiga SmartBank"),
     (r"LaLiga\s*SmartBank", "LaLiga SmartBank"),
     (r"LaLiga\s*Hypermotion", "LaLiga HyperMotion")
 ]
 
-# 2. Sinónimos de Nombres de Canales
+# 2. Sinonimos de Nombres de Canales
 CHANNEL_NAMES = {
     "laligahypermotion": "LaLiga TV", "hypermotion1": "LaLiga TV",
     "winsportsplus": "Win Sports +", "winsports2": "Win Sports 2",
@@ -83,21 +83,13 @@ def limpiar_texto(texto):
 def normalizar_para_agrupar(texto):
     if not texto: return ""
     t = limpiar_texto(texto).lower()
-    t = t.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+    t = t.replace("a", "a").replace("e", "e").replace("i", "i").replace("o", "o").replace("u", "u")
     return t
 
 def obtener_titulo_estandar(titulo_original):
-    """
-    Aplica reglas Regex para unificar nombres.
-    Ej: "LaLiga 2: Almería" -> "LaLiga SmartBank: Almería"
-    """
     titulo_limpio = limpiar_texto(titulo_original)
-    
-    # Aplicar cada regla regex
     for patron, reemplazo in TITLE_REGEX_RULES:
-        # re.sub reemplaza todas las apariciones que coincidan con el patrón
         titulo_limpio = re.sub(patron, reemplazo, titulo_limpio, flags=re.IGNORECASE)
-            
     return titulo_limpio
 
 def obtener_liga(titulo, categoria):
@@ -111,7 +103,7 @@ def obtener_liga(titulo, categoria):
             return cat.title()
     if categoria and categoria not in ["Other", "Futbol", "Deportes"]:
         return categoria
-    return "Fútbol"
+    return "Futbol"
 
 # --- PROCESADORES ---
 
@@ -205,15 +197,15 @@ def limpiar_nombre_canal_simple(url):
         return "Canal"
     except: return "Canal"
 
-# --- FUNCIÓN PRINCIPAL ---
+# --- FUNCION PRINCIPAL ---
 
 def actualizar_datos():
-    print(f"🚀 Iniciando scraper con Regex Fix...")
+    print("Iniciando scraper...")
     
     partidos_dict = {}
 
     for source in SOURCES:
-        print(f"🔍 Obteniendo: {source['name']}...")
+        print(f"Obteniendo: {source['name']}...")
         try:
             response = requests.get(source['url'], timeout=15)
             if response.status_code != 200: continue
@@ -227,7 +219,7 @@ def actualizar_datos():
             elif source['type'] == 'la14hd': eventos = procesar_la14hd(data)
             else: eventos = []
 
-            print(f"   ✅ {len(eventos)} items.")
+            print(f"   Items: {len(eventos)}")
 
             for ev in eventos:
                 if not ev['url']: continue
@@ -236,7 +228,7 @@ def actualizar_datos():
                 if clave not in partidos_dict:
                     partidos_dict[clave] = {
                         "time": ev['time'],
-                        "teams": ev['teams"],
+                        "teams": ev['teams'],
                         "league": ev['league'],
                         "channels": [],
                         "counters": {}
@@ -254,7 +246,7 @@ def actualizar_datos():
                     partidos_dict[clave]['channels'].append(canal)
 
         except Exception as e:
-            print(f"   ❌ Error: {e}")
+            print(f"   Error: {e}")
 
     lista_final = list(partidos_dict.values())
     lista_final.sort(key=lambda x: x['time'])
@@ -262,9 +254,9 @@ def actualizar_datos():
     for p in lista_final:
         if 'counters' in p: del p['counters']
     
-    print(f"📊 Total eventos unificados: {len(lista_final)}")
+    print(f"Total eventos: {len(lista_final)}")
 
-    print("📤 Subiendo a GitHub Gist...")
+    print("Subiendo a GitHub Gist...")
     url_api = f"https://api.github.com/gists/{GIST_ID}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     payload = {
@@ -277,9 +269,9 @@ def actualizar_datos():
     
     try:
         r = requests.patch(url_api, headers=headers, json=payload)
-        if r.status_code == 200: print("🚀 ¡Actualización exitosa!")
-        else: print(f"❌ Error subiendo: {r.text}")
-    except Exception as e: print(f"❌ Excepción subiendo: {e}")
+        if r.status_code == 200: print("Actualizacion exitosa!")
+        else: print(f"Error subiendo: {r.text}")
+    except Exception as e: print(f"Excepcion subiendo: {e}")
 
 if __name__ == "__main__":
     actualizar_datos()
