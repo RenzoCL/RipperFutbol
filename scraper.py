@@ -21,7 +21,19 @@ SOURCES = [
     {"name": "PLTVHD", "url": "https://pltvhd.com/diaries.json", "type": "pltvhd"}
 ]
 
-# DICCIONARIO DE NOMBRES LIMPIOS (Para arreglar nombres feos)
+# --- DICCIONARIOS DE MAPEO ---
+
+# 1. Sinónimos de Títulos (Para agrupar partidos con nombres distintos)
+# Si el título contiene la clave, se renombra al valor para agrupar.
+TITLE_SYNONYMS = {
+    "LALIGA 2": "LaLiga SmartBank",
+    "LALIGA SMARTBANK": "LaLiga SmartBank",
+    "SMARTBANK": "LaLiga SmartBank",
+    "LALIGA HYPERMOTION": "LaLiga HyperMotion", # Liga 1 española
+    "HYPERMOTION": "LaLiga HyperMotion"
+}
+
+# 2. Sinónimos de Nombres de Canales (Para nombres bonitos)
 CHANNEL_NAMES = {
     "laligahypermotion": "LaLiga TV",
     "hypermotion1": "LaLiga TV",
@@ -64,7 +76,6 @@ CHANNEL_NAMES = {
 # --- FUNCIONES AUXILIARES ---
 
 def obtener_nombre_limpio(url, default_name):
-    """Busca el nombre en el diccionario o usa el default."""
     try:
         if 'stream=' in url:
             slug = url.split('stream=')[-1].split('&')[0].lower()
@@ -85,24 +96,31 @@ def decodificar_base64(url_encoded):
         return url_encoded
 
 def limpiar_titulo(texto):
-    """Limpieza estricta: quita saltos de línea y múltiples espacios."""
     if not texto: return ""
     try:
         t = str(texto).strip()
-        # Reemplazar saltos de línea por espacio
         t = t.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
-        # Reemplazar múltiples espacios por uno solo
         t = re.sub(r'\s+', ' ', t).strip()
         return t
     except:
         return str(texto)
 
 def normalizar_para_agrupar(texto):
-    """Convierte a minúsculas y quita tildes para agrupar duplicados."""
+    """Convierte a minúsculas, quita tildes y busca sinónimos."""
     if not texto: return ""
     t = limpiar_titulo(texto).lower()
     t = t.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
     return t
+
+def obtener_titulo_estandar(titulo_original):
+    """Busca si el título coincide con un sinónimo conocido y devuelve el nombre estándar."""
+    titulo_up = limpiar_titulo(titulo_original).upper()
+    for key, value in TITLE_SYNONYMS.items():
+        if key in titulo_up:
+            # Reemplaza la parte coincidente por el valor estándar
+            # Ejemplo: "LaLiga 2: Almería" -> "LaLiga SmartBank: Almería"
+            return titulo_original.replace(key, value).replace(key.title(), value) 
+    return titulo_original
 
 def obtener_liga(titulo, categoria):
     titulo_up = limpiar_titulo(titulo).upper()
@@ -125,13 +143,16 @@ def procesar_streamtp(data):
     for item in lista:
         try:
             url = str(item.get("link", ""))
-            raw_name = limpiar_nombre_canal_simple(url) # Función simple para default
-            clean_name = obtener_nombre_limpio(url, raw_name) # Intentar arreglar
+            raw_name = limpiar_nombre_canal_simple(url)
+            clean_name = obtener_nombre_limpio(url, raw_name)
+            
+            # APLICAR REGLA DE TÍTULO
+            titulo_final = obtener_titulo_estandar(item.get("title", "Evento"))
             
             eventos.append({
                 "time": str(item.get("time", "--:--")),
-                "teams": limpiar_titulo(item.get("title", "Evento")),
-                "league": obtener_liga(item.get("title", ""), item.get("category")),
+                "teams": limpiar_titulo(titulo_final),
+                "league": obtener_liga(titulo_final, item.get("category")),
                 "url": url,
                 "source": "StreamTP",
                 "clean_name": clean_name
@@ -147,7 +168,9 @@ def procesar_pltvhd(data):
             attrs = item.get("attributes", {})
             hora = str(attrs.get("diary_hour", "--:--"))
             if len(hora) > 5: hora = hora[:5]
-            titulo = limpiar_titulo(attrs.get("diary_description", "Evento"))
+            
+            # APLICAR REGLA DE TÍTULO
+            titulo_final = obtener_titulo_estandar(attrs.get("diary_description", "Evento"))
             
             embeds = attrs.get("embeds", {}).get("data", [])
             for emb in embeds:
@@ -161,8 +184,8 @@ def procesar_pltvhd(data):
 
                 eventos.append({
                     "time": hora,
-                    "teams": titulo,
-                    "league": obtener_liga(titulo, attrs.get("country", {}).get("data", {}).get("attributes", {}).get("name")),
+                    "teams": limpiar_titulo(titulo_final),
+                    "league": obtener_liga(titulo_final, attrs.get("country", {}).get("data", {}).get("attributes", {}).get("name")),
                     "url": link_final,
                     "source": "PLTVHD",
                     "clean_name": clean_name
@@ -176,7 +199,11 @@ def procesar_la14hd(data):
     for item in lista:
         try:
             hora = str(item.get("time") or item.get("hour") or "--:--")
-            titulo = limpiar_titulo(item.get("title") or item.get("teams") or item.get("name") or "Evento")
+            titulo_raw = str(item.get("title") or item.get("teams") or item.get("name") or "Evento")
+            
+            # APLICAR REGLA DE TÍTULO
+            titulo_final = obtener_titulo_estandar(titulo_raw)
+            
             url = str(item.get("url") or item.get("link") or "")
             
             raw_name = limpiar_nombre_canal_simple(url)
@@ -184,8 +211,8 @@ def procesar_la14hd(data):
 
             eventos.append({
                 "time": hora,
-                "teams": titulo,
-                "league": obtener_liga(titulo, item.get("league") or item.get("category")),
+                "teams": limpiar_titulo(titulo_final),
+                "league": obtener_liga(titulo_final, item.get("league") or item.get("category")),
                 "url": url,
                 "source": "La14HD",
                 "clean_name": clean_name
@@ -206,7 +233,7 @@ def limpiar_nombre_canal_simple(url):
 # --- FUNCIÓN PRINCIPAL ---
 
 def actualizar_datos():
-    print(f"🚀 Iniciando scraper mejorado...")
+    print(f"🚀 Iniciando scraper con sinónimos de ligas...")
     
     partidos_dict = {}
 
@@ -236,7 +263,7 @@ def actualizar_datos():
             for ev in eventos:
                 if not ev['url']: continue
 
-                # Clave de agrupación ESTRICTA (hora + titulo limpio)
+                # Clave de agrupación ESTRICTA
                 clave = f"{ev['time']}_{normalizar_para_agrupar(ev['teams'])}"
 
                 if clave not in partidos_dict:
@@ -252,7 +279,6 @@ def actualizar_datos():
                 current_count = partidos_dict[clave]['counters'].get(origen, 0) + 1
                 partidos_dict[clave]['counters'][origen] = current_count
 
-                # NOMBRE FINAL
                 base_name = ev.get('clean_name')
                 nombre_final = f"{base_name} ({origen}) OP{current_count}"
 
