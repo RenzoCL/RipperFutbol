@@ -3,480 +3,1214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TV Sports - Simulador TV</title>
+    <title>RIPPER FUTBOL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --tv-bg: #1a1a2e; --sidebar-bg: rgba(0, 0, 0, 0.95);
-            --highlight: #e94560; --text-color: #ffffff;
-            --active-green: #4ecca3;
+            --bg: #050508;
+            --surface: #0d0d14;
+            --surface2: #13131e;
+            --border: rgba(255,255,255,0.06);
+            --accent: #ff3a5c;
+            --accent2: #ff7a00;
+            --green: #00e5a0;
+            --text: #ffffff;
+            --muted: rgba(255,255,255,0.4);
+            --glow: rgba(255, 58, 92, 0.4);
         }
 
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            margin: 0; padding: 0; background-color: #000;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: var(--text-color); overflow: hidden; height: 100vh;
+            background: var(--bg);
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
             user-select: none;
         }
 
-        #tv-container {
-            width: 100vw; height: 100vh; background-color: #000;
-            position: relative; overflow: hidden;
-            display: none; 
+        /* ========================
+           PANTALLA PRINCIPAL
+        ======================== */
+        #app {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            position: relative;
         }
 
-        /* Pantalla de Apagado */
-        #off-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 9999;
-            display: flex; justify-content: center; align-items: center;
-            color: #333; font-size: 1.2rem; flex-direction: column;
+        /* ========================
+           SIDEBAR
+        ======================== */
+        #sidebar {
+            width: 420px;
+            min-width: 420px;
+            height: 100%;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 20;
+            transform: translateX(0);
+            transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
         }
-        #off-screen.active { display: flex; }
-        #off-screen.hidden { display: none; }
 
-        /* Video */
-        .player-area { width: 100%; height: 100%; position: relative; z-index: 1; background: #000; }
-        .tv-screen { width: 100%; height: 100%; border: none; background: #000; }
-
-        /* Overlay de "Presione OK" */
-        .play-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 5; display: none; justify-content: center; align-items: center;
-            background: rgba(0,0,0,0.7); cursor: pointer;
+        #sidebar.hidden {
+            transform: translateX(-100%);
         }
-        .play-overlay.active { display: flex; }
-        
-        .play-hint { text-align: center; animation: pulse 2s infinite; }
-        .play-hint-icon { font-size: 6rem; color: var(--highlight); margin-bottom: 10px; text-shadow: 0 0 20px var(--highlight); }
-        .play-hint-text { font-size: 1.8rem; color: white; }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 
-        /* Overlay de Advertencia (Salir) */
-        .exit-overlay {
+        .sidebar-glow {
             position: absolute;
-            bottom: 20px;
-            left: 50%;
+            top: 0; right: -1px;
+            width: 1px;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #sidebar.hidden .sidebar-glow { opacity: 1; }
+
+        /* Logo / Header del sidebar */
+        .sidebar-top {
+            padding: 28px 28px 20px;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-top::before {
+            content: '';
+            position: absolute;
+            top: -40px; left: -40px;
+            width: 200px; height: 200px;
+            background: radial-gradient(circle, rgba(255,58,92,0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2rem;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo span {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .sidebar-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .live-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .sidebar-subtitle {
+            font-size: 0.85rem;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .update-btn {
+            margin-left: auto;
+            background: rgba(255,58,92,0.1);
+            border: 1px solid rgba(255,58,92,0.3);
+            color: var(--accent);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .update-btn:hover { background: rgba(255,58,92,0.2); }
+
+        /* Filtro de hora */
+        .time-bar {
+            display: flex;
+            gap: 6px;
+            padding: 14px 28px;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .time-bar::-webkit-scrollbar { display: none; }
+
+        .time-pill {
+            padding: 5px 14px;
+            border-radius: 20px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            font-size: 0.8rem;
+            color: var(--muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            letter-spacing: 1px;
+        }
+
+        .time-pill.active {
+            background: rgba(255,58,92,0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Lista de eventos */
+        .event-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.1) transparent;
+        }
+
+        .event-item {
+            display: flex;
+            align-items: stretch;
+            padding: 0;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .event-item::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(255,58,92,0) 0%, rgba(255,58,92,0.05) 100%);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .event-item:hover::before,
+        .event-item.selected::before { opacity: 1; }
+
+        .event-item.selected {
+            background: rgba(255,58,92,0.08);
+        }
+
+        .event-time-col {
+            width: 70px;
+            min-width: 70px;
+            padding: 16px 0 16px 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .event-hour {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.3rem;
+            line-height: 1;
+            color: var(--accent);
+        }
+
+        .event-live-badge {
+            font-size: 0.6rem;
+            letter-spacing: 1px;
+            color: var(--green);
+            margin-top: 2px;
+        }
+
+        .event-bar {
+            width: 3px;
+            margin: 10px 14px;
+            border-radius: 2px;
+            background: var(--border);
+            transition: background 0.2s;
+        }
+
+        .event-item.selected .event-bar,
+        .event-item:hover .event-bar {
+            background: var(--accent);
+        }
+
+        .event-info {
+            flex: 1;
+            padding: 14px 28px 14px 0;
+        }
+
+        .event-teams {
+            font-size: 1.05rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            line-height: 1.3;
+            margin-bottom: 4px;
+        }
+
+        .event-league {
+            font-size: 0.78rem;
+            color: var(--muted);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .event-channels-count {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7rem;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        /* Sidebar bottom status */
+        .sidebar-footer {
+            padding: 14px 28px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.78rem;
+            color: var(--muted);
+            letter-spacing: 1px;
+        }
+
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--muted);
+        }
+
+        .status-dot.ok { background: var(--green); box-shadow: 0 0 5px var(--green); }
+        .status-dot.err { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+
+        /* ========================
+           ÁREA DE REPRODUCCIÓN
+        ======================== */
+        #player-area {
+            flex: 1;
+            position: relative;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #tv-iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+            z-index: 1;
+        }
+
+        /* Pantalla de bienvenida */
+        #welcome-screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2;
+            background: var(--bg);
+        }
+
+        .welcome-bg {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+        }
+
+        .welcome-bg::before {
+            content: '';
+            position: absolute;
+            top: -200px; left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.6);
-            z-index: 60;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(255,58,92,0.08) 0%, transparent 70%);
+        }
+
+        .grid-lines {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        .welcome-content {
+            position: relative;
+            text-align: center;
+        }
+
+        .welcome-logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 5rem;
+            letter-spacing: 8px;
+            background: linear-gradient(135deg, #fff 30%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 12px;
+        }
+
+        .welcome-sub {
+            font-size: 0.9rem;
+            letter-spacing: 5px;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin-bottom: 48px;
+        }
+
+        .welcome-hint {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .key-hint {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 1px;
+        }
+
+        .key-box {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1rem;
+            color: white;
+            letter-spacing: 2px;
+        }
+
+        /* Header superpuesto sobre el player */
+        #player-header {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            padding: 20px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+            z-index: 10;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .now-playing {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .np-channel {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 3px;
+            color: white;
+            line-height: 1;
+        }
+
+        .np-event {
+            font-size: 0.82rem;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 1px;
+            margin-top: 3px;
+        }
+
+        .player-clock {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: 3px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        /* Overlay "cargando" mientras el iframe carga */
+        #loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
             display: none;
             justify-content: center;
             align-items: center;
-            pointer-events: none;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 8;
         }
-        .exit-overlay.active { display: flex; }
-        .exit-box {
-            background: rgba(30,30,30,0.7);
-            padding: 8px 14px;
+
+        #loading-overlay.active { display: flex; }
+
+        .loader-ring {
+            width: 60px; height: 60px;
+            border: 3px solid rgba(255,58,92,0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loader-text {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            color: var(--muted);
+        }
+
+        /* ========================
+           MODAL CANALES
+        ======================== */
+        #modal-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            backdrop-filter: blur(4px);
+        }
+
+        #modal-overlay.active { display: flex; }
+
+        .modal-box {
+            background: var(--surface);
+            border: 1px solid rgba(255,58,92,0.3);
+            border-radius: 12px;
+            padding: 0;
+            min-width: 340px;
+            max-width: 420px;
+            overflow: hidden;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,58,92,0.1);
+        }
+
+        .modal-title-bar {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,58,92,0.05);
+        }
+
+        .modal-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.4rem;
+            letter-spacing: 3px;
+            color: var(--accent);
+        }
+
+        .modal-event-name {
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+
+        .modal-channels {
+            padding: 12px;
+        }
+
+        .channel-btn {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
             border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: all 0.2s;
+        }
+
+        .channel-btn:last-child { margin-bottom: 0; }
+
+        .channel-btn.selected,
+        .channel-btn:hover {
+            background: rgba(255,58,92,0.1);
+            border-color: rgba(255,58,92,0.5);
+        }
+
+        .ch-icon {
+            width: 36px; height: 36px;
+            border-radius: 6px;
+            background: rgba(255,58,92,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .ch-name {
+            font-weight: 600;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+            color: var(--text);
+        }
+
+        .ch-quality {
+            margin-left: auto;
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            color: var(--green);
+            background: rgba(0,229,160,0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .modal-hint {
+            padding: 12px 24px;
+            border-top: 1px solid var(--border);
+            font-size: 0.75rem;
+            color: var(--muted);
+            letter-spacing: 1px;
             text-align: center;
-            border: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+        }
+
+        /* ========================
+           NOTIFICACIONES TOAST
+        ======================== */
+        #toast {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: rgba(13,13,20,0.95);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 0.88rem;
+            letter-spacing: 1px;
+            color: var(--muted);
+            z-index: 100;
+            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+            white-space: nowrap;
+        }
+
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Sidebar toggle button (visible cuando el sidebar está oculto) */
+        #sidebar-toggle {
+            position: absolute;
+            left: 0; top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 60px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            border-radius: 0 6px 6px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #sidebar-toggle.visible {
+            opacity: 1;
             pointer-events: auto;
-            font-size: 0.95rem;
-            color: #eee;
         }
-        .exit-box h2 { margin: 0; font-size: 0.95rem; color: #f1f1f1; }
-        .exit-box p { margin: 0; color: #ccc; font-size: 0.85rem; }
 
-        /* Volumen Overlay */
-        .volume-overlay {
-            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.85); padding: 15px 30px; border-radius: 10px;
-            display: none; align-items: center; gap: 15px; z-index: 50; border: 1px solid #444;
+        #sidebar-toggle::after {
+            content: '›';
+            font-size: 1.2rem;
+            color: var(--accent);
         }
-        .volume-overlay.active { display: flex; }
-        .vol-bar-container { width: 300px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
-        .vol-bar-level { height: 100%; background: var(--highlight); width: 50%; transition: width 0.1s; }
 
-        /* Header */
-        .tv-header {
-            position: absolute; top: 0; left: 0; right: 0; padding: 20px 40px;
-            display: flex; justify-content: space-between; align-items: center;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); z-index: 10; pointer-events: none;
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            font-size: 0.85rem;
+            gap: 12px;
         }
-        .channel-brand { font-size: 1.5rem; font-weight: bold; color: var(--active-green); }
-        .time { font-size: 1.2rem; color: #ccc; }
 
-        /* Menú Lateral */
-        .sidebar-menu {
-            position: absolute; top: 0; left: -450px; width: 450px; height: 100%;
-            background: var(--sidebar-bg); z-index: 20; transition: left 0.3s ease;
-            display: flex; flex-direction: column; border-right: 2px solid #333;
+        .empty-icon {
+            font-size: 2rem;
+            opacity: 0.3;
         }
-        .sidebar-menu.open { left: 0; }
-        .sidebar-header { padding: 20px; background: rgba(233, 69, 96, 0.1); border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;}
-        .sidebar-header h3 { margin: 0; color: var(--highlight); text-transform: uppercase; font-size: 1rem; }
-        .status-badge { font-size: 0.7rem; background: #444; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
-        
-        .event-list { flex: 1; overflow-y: auto; padding: 10px 0; }
-        
-        .event-item { padding: 15px 20px; border-bottom: 1px solid #2a2a2a; cursor: pointer; }
-        .event-item.selected { background: rgba(233, 69, 96, 0.2); border-left: 4px solid var(--highlight); }
-        .event-time { color: var(--active-green); font-weight: bold; font-size: 0.9rem; }
-        .event-name { font-size: 1.1rem; margin: 5px 0; }
-        .event-league { color: #888; font-size: 0.8rem; }
-        
-        /* Estilo especial para mensaje de vacío */
-        .empty-state { text-align: center; padding: 40px 20px; color: #666; }
-        .empty-state h2 { color: #555; margin-bottom: 10px; }
-
-        .remote-control { display: none; }
-
-        /* Modal Canales */
-        .channel-modal {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #222; padding: 30px; border-radius: 10px; border: 2px solid var(--highlight);
-            display: none; z-index: 30; min-width: 300px; box-shadow: 0 0 50px rgba(0,0,0,0.8);
-        }
-        .channel-option { padding: 15px; margin: 5px 0; background: #333; cursor: pointer; border-radius: 5px; border: 1px solid transparent; }
-        .channel-option.selected { border-color: var(--highlight); background: rgba(233, 69, 96, 0.2); }
     </style>
 </head>
 <body>
 
-    <!-- Pantalla Negra -->
-    <div id="off-screen" class="active">
-        <div style="text-align:center">
-            <div style="font-size: 3rem; margin-bottom: 20px;">⏻</div>
-            <p>APLICACIÓN CERRADA</p>
-            <p style="font-size: 0.8rem; color: #555;">Presione cualquier tecla para encender</p>
-            <div style="margin-top: 20px; font-size: 0.7rem; color: #444;">
-                <p>ESC = BACK | BACKSPACE = HOME</p>
+<div id="app">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+        <div class="sidebar-glow"></div>
+
+        <div class="sidebar-top">
+            <div class="logo">SPORT<span>STREAM</span></div>
+            <div class="sidebar-meta">
+                <div class="live-dot"></div>
+                <div class="sidebar-subtitle">Eventos en vivo</div>
+                <button class="update-btn" id="update-btn" onclick="tryUpdate()">↻ ACTUALIZAR</button>
             </div>
+        </div>
+
+        <div class="event-list" id="event-list">
+            <div class="empty-state">
+                <div class="empty-icon">⏳</div>
+                <span>CARGANDO EVENTOS...</span>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="status-dot" id="status-dot"></div>
+            <span id="status-text">Conectando...</span>
+            <span style="margin-left: auto;" id="current-time">00:00</span>
         </div>
     </div>
 
-    <div id="tv-container">
-        <div class="player-area">
-            <iframe id="tv-screen" class="tv-screen" style="display:none;" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>
-            
-            <div class="play-overlay" id="play-overlay" onclick="triggerPlay()">
-                <div class="play-hint">
-                    <div class="play-hint-icon">▶</div>
-                    <div class="play-hint-text">PRESIONE OK PARA REPRODUCIR</div>
+    <!-- ÁREA DEL PLAYER -->
+    <div id="player-area">
+        <!-- Pantalla de bienvenida -->
+        <div id="welcome-screen">
+            <div class="welcome-bg">
+                <div class="grid-lines"></div>
+            </div>
+            <div class="welcome-content">
+                <div class="welcome-logo">SPORTSTREAM</div>
+                <div class="welcome-sub">Tu señal deportiva en vivo</div>
+                <div class="welcome-hint">
+                    <div class="key-hint">
+                        <span class="key-box">◀ ▲ ▼</span>
+                        <span>Navegar eventos</span>
+                    </div>
+                    <div class="key-hint">
+                        <span class="key-box">OK</span>
+                        <span>Seleccionar / Reproducir</span>
+                    </div>
+                    <div class="key-hint">
+                        <span class="key-box">BACK</span>
+                        <span>Volver al menú</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="exit-overlay" id="exit-overlay">
-            <div class="exit-box">
-                <div>Presione <strong>ESC</strong> nuevamente para salir</div>
+        <!-- IFRAME OCULTO - se muestra cuando hay canal activo -->
+        <iframe id="tv-iframe"
+                allow="autoplay; encrypted-media; fullscreen; picture-in-picture; accelerometer; gyroscope"
+                allowfullscreen
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation allow-presentation"
+        ></iframe>
+
+        <!-- Overlay loading -->
+        <div id="loading-overlay">
+            <div class="loader-ring"></div>
+            <div class="loader-text">CARGANDO SEÑAL...</div>
+        </div>
+
+        <!-- Header del player (info del canal activo) -->
+        <div id="player-header" style="opacity:0">
+            <div class="now-playing">
+                <div class="np-channel" id="np-channel">—</div>
+                <div class="np-event" id="np-event">—</div>
             </div>
+            <div class="player-clock" id="player-clock">00:00</div>
         </div>
 
-        <div class="volume-overlay" id="vol-overlay">
-            <div>🔊</div>
-            <div class="vol-bar-container"><div class="vol-bar-level" id="vol-level"></div></div>
-            <div class="vol-text" id="vol-text">50%</div>
-        </div>
-
-        <div class="tv-header">
-            <div class="channel-brand" id="channel-name">LIVE TV</div>
-            <div class="time" id="current-time">00:00</div>
-        </div>
-
-        <div class="sidebar-menu" id="sidebar">
-            <div class="sidebar-header">
-                <h3>Agenda Deportiva</h3>
-                <span class="status-badge" id="status-badge" onclick="tryUpdate()">LOCAL</span>
-            </div>
-            <div class="event-list" id="event-list"></div>
-        </div>
-
-        <div class="channel-modal" id="channel-modal">
-            <h3 style="margin-top:0; color: var(--highlight);">Elige Canal</h3>
-            <div id="channel-options"></div>
-            <p style="font-size: 0.8rem; color: #aaa;">↑↓ Navegar | OK Seleccionar</p>
-        </div>
+        <!-- Sidebar toggle -->
+        <div id="sidebar-toggle" onclick="showMenu()"></div>
     </div>
 
-    <script>
-        // --- VARIABLES GLOBALES ---
-        let isAppRunning = false;
-        let isMenuOpen = false;
-        let currentList = [];
-        let currentIndex = 0;
-        let isModalOpen = false;
-        let currentModalIndex = 0;
-        let volume = 50;
-        let volHideTimeout = null;
-        let isWaitingForPlay = false;
-        let isWaitingForExitConfirm = false;
-        let exitTimeout = null;
+</div>
 
-        // --- INICIO ---
-        function init() {
-            updateClock();
-            setInterval(updateClock, 1000);
-            // Mostrar mensaje inicial amigable
-            showEmptyState("Cargando agenda...");
-            setupKeyListener();
-            keepFocusAlive();
-            tryUpdate();
-        }
-        
-        // --- FUNCIONES DE UI ---
-        function showEmptyState(message) {
-             const container = document.getElementById('event-list');
-             container.innerHTML = `
-                <div class="empty-state">
-                    <h2>${message}</h2>
-                    <p>Esperando conexión...</p>
-                </div>
-             `;
-        }
+<!-- MODAL CANALES -->
+<div id="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-title-bar">
+            <div class="modal-title">SELECCIONAR CANAL</div>
+            <div class="modal-event-name" id="modal-event-name">—</div>
+        </div>
+        <div class="modal-channels" id="modal-channels"></div>
+        <div class="modal-hint">▲ ▼ Navegar &nbsp;·&nbsp; OK Reproducir &nbsp;·&nbsp; BACK Cancelar</div>
+    </div>
+</div>
 
-        // --- MANTENER FOCO VIVO ---
-        function keepFocusAlive() {
-            setInterval(() => {
-                if (isAppRunning && !isModalOpen && !isWaitingForExitConfirm && !isWaitingForPlay) {
-                     if(!document.getElementById('exit-overlay').classList.contains('active')) {
-                        window.focus();
-                     }
-                }
-            }, 500);
-        }
+<!-- TOAST -->
+<div id="toast"></div>
 
-        // --- DETECTOR DE TECLAS ---
-        function setupKeyListener() {
-            document.addEventListener('keydown', function(e) {
-                if (!isAppRunning) { powerOn(); return; }
+<script>
+    // =============================================
+    // ESTADO
+    // =============================================
+    let events = [];
+    let currentIndex = 0;
+    let isMenuOpen = true;
+    let isModalOpen = false;
+    let modalIndex = 0;
+    let activeEvent = null;
+    let activeChannel = null;
+    let backPressCount = 0;
+    let backTimeout = null;
 
-                if (e.key === 'Backspace') { e.preventDefault(); handleRemote('home'); return; }
-                if (e.key === 'Escape') { e.preventDefault(); handleRemote('back'); return; }
+    // =============================================
+    // INIT
+    // =============================================
+    function init() {
+        updateClock();
+        setInterval(updateClock, 1000);
+        document.addEventListener('keydown', onKey);
+        tryUpdate();
+    }
 
-                if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.key) > -1) e.preventDefault();
-                
-                switch(e.key) {
-                    case 'ArrowUp': handleRemote('up'); break;
-                    case 'ArrowDown': handleRemote('down'); break;
-                    case 'ArrowLeft': handleRemote('left'); break;
-                    case 'ArrowRight': handleRemote('right'); break;
-                    case 'Enter': handleRemote('ok'); break;
-                }
-            });
-        }
+    // =============================================
+    // RELOJ
+    // =============================================
+    function updateClock() {
+        const t = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('current-time').textContent = t;
+        document.getElementById('player-clock').textContent = t;
+    }
 
-        // --- ENCENDIDO / APAGADO ---
-        function powerOn() {
-            isAppRunning = true;
-            document.getElementById('off-screen').classList.remove('active');
-            document.getElementById('off-screen').classList.add('hidden');
-            document.getElementById('tv-container').style.display = 'block';
-            toggleMenu(true);
-        }
+    // =============================================
+    // TECLADO
+    // =============================================
+    function onKey(e) {
+        const prevent = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Escape','Backspace','Enter'];
+        if (prevent.includes(e.key)) e.preventDefault();
 
-        function powerOff() {
-            isAppRunning = false;
-            isMenuOpen = false; isModalOpen = false;
-            isWaitingForPlay = false; isWaitingForExitConfirm = false;
-            document.getElementById('tv-container').style.display = 'none';
-            document.getElementById('off-screen').classList.add('active');
-            document.getElementById('exit-overlay').classList.remove('active');
-            document.getElementById('tv-screen').src = 'about:blank';
-        }
-
-        // --- ACTUALIZACIÓN (MODIFICADO) ---
-        async function tryUpdate() {
-            const badge = document.getElementById('status-badge');
-            badge.innerText = "ACTUALIZANDO...";
-            
-            const GIST_RAW_URL = 'https://gist.githubusercontent.com/RenzoCL/7f56fdb7784efa4aa8e135f0968a0dc1/raw/eventos.json';
-
-            try {
-                // Intento directo con random para evitar cache
-                let response = await fetch(GIST_RAW_URL + '?t=' + new Date().getTime());
-                
-                if (!response.ok) throw new Error("Direct fetch error");
-                
-                const data = await response.json();
-                
-                // --- LÓGICA DE LISTA VACÍA ---
-                if (data && data.length > 0) {
-                    // Hay eventos
-                    currentList = data;
-                    currentList.sort((a, b) => a.time.localeCompare(b.time));
-                    renderAgenda();
-                    badge.innerText = "EN VIVO";
-                    badge.style.color = "#4ecca3";
-                } else {
-                    // La lista está vacía ([] viene del scraper)
-                    currentList = [];
-                    showEmptyState("No hay eventos deportivos por el momento");
-                    badge.innerText = "SIN EVENTOS";
-                    badge.style.color = "#f39c12"; // Naranja para alertar
-                }
-
-            } catch (e) {
-                // Error de red
-                console.error("Error:", e);
-                showEmptyState("Error de conexión");
-                badge.innerText = "ERROR RED";
-                badge.style.color = "red";
+        if (isModalOpen) {
+            switch(e.key) {
+                case 'ArrowUp': modalNav(-1); break;
+                case 'ArrowDown': modalNav(1); break;
+                case 'Enter': confirmModal(); break;
+                case 'Escape': case 'Backspace': closeModal(); break;
             }
+            return;
         }
 
-        // --- NAVEGACIÓN ---
-        function handleRemote(action) {
-            if (isWaitingForPlay) {
-                if (action === 'ok') triggerPlay();
-                else if (action === 'back' || action === 'home') {
-                    isWaitingForPlay = false;
-                    document.getElementById('play-overlay').classList.remove('active');
-                    toggleMenu(true);
-                }
-                return;
-            }
-
-            if (isModalOpen) { handleModalNav(action); return; }
-
-            if ((action === 'up' || action === 'down' || action === 'left' || action === 'right') && isWaitingForExitConfirm) {
-                isWaitingForExitConfirm = false;
-                document.getElementById('exit-overlay').classList.remove('active');
-                clearTimeout(exitTimeout);
-            }
-
-            switch(action) {
-                case 'home': powerOff(); break;
-                case 'back':
-                    if (isMenuOpen) toggleMenu(false);
-                    else {
-                        if (isWaitingForExitConfirm) powerOff();
-                        else {
-                            isWaitingForExitConfirm = true;
-                            document.getElementById('exit-overlay').classList.add('active');
-                            clearTimeout(exitTimeout);
-                            exitTimeout = setTimeout(() => {
-                                isWaitingForExitConfirm = false;
-                                document.getElementById('exit-overlay').classList.remove('active');
-                            }, 3000);
-                        }
-                    }
-                    break;
-                case 'left': if (!isMenuOpen) toggleMenu(true); break;
-                case 'right': if (isMenuOpen) toggleMenu(false); break;
-                case 'ok': if (isMenuOpen) selectEvent(currentIndex); break;
-                case 'up': if(isMenuOpen) navigate(-1); break;
-                case 'down': if(isMenuOpen) navigate(1); break;
-            }
+        switch(e.key) {
+            case 'ArrowUp': navigate(-1); break;
+            case 'ArrowDown': navigate(1); break;
+            case 'ArrowLeft':
+                if (!isMenuOpen) showMenu();
+                break;
+            case 'ArrowRight':
+                if (isMenuOpen) hideMenu();
+                break;
+            case 'Enter':
+                if (isMenuOpen) selectEvent();
+                else if (activeChannel) showMenu();
+                break;
+            case 'Escape':
+            case 'Backspace':
+                handleBack();
+                break;
         }
+    }
 
-        function toggleMenu(open) {
-            isMenuOpen = open;
-            document.getElementById('sidebar').classList.toggle('open', open);
-            if (open) updateSelection();
-        }
-
-        function navigate(dir) {
-            // Evitar navegación si la lista está vacía
-            if (currentList.length === 0) return;
-            
-            currentIndex += dir;
-            if (currentIndex < 0) currentIndex = 0;
-            if (currentIndex >= currentList.length) currentIndex = currentList.length - 1;
-            updateSelection();
-            document.querySelector('.event-item.selected')?.scrollIntoView({block: 'nearest'});
-        }
-
-        function updateSelection() {
-            document.querySelectorAll('.event-item').forEach((el, i) => el.classList.toggle('selected', i === currentIndex));
-        }
-
-        function selectEvent(idx) {
-            const event = currentList[idx];
-            if (!event || event.channels.length === 0) return;
-            if (event.channels.length > 1) showChannelModal(event.channels);
-            else playChannel(event.channels[0]);
-        }
-
-        // --- REPRODUCTOR ---
-        function playChannel(channel) {
-            const iframe = document.getElementById('tv-screen');
-            let finalUrl = channel.url;
-            if (!finalUrl.includes('autoplay')) finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'autoplay=1';
-
-            iframe.dataset.pendingSrc = finalUrl;
-            iframe.style.display = 'block';
-            document.getElementById('channel-name').innerText = channel.name;
-
-            toggleMenu(false);
-            closeModal();
-            isWaitingForPlay = true;
-            document.getElementById('play-overlay').classList.add('active');
-        }
-        
-        function triggerPlay() {
-            const iframe = document.getElementById('tv-screen');
-            if (iframe.dataset.pendingSrc) {
-                iframe.src = iframe.dataset.pendingSrc;
-                delete iframe.dataset.pendingSrc;
+    function handleBack() {
+        if (isMenuOpen) {
+            if (activeChannel) { hideMenu(); return; }
+            // si no hay canal activo, doble back para salir
+            if (backPressCount === 0) {
+                backPressCount = 1;
+                showToast('Presiona BACK nuevamente para salir');
+                backTimeout = setTimeout(() => { backPressCount = 0; }, 3000);
             } else {
-                const currentSrc = iframe.src;
-                iframe.src = 'about:blank';
-                setTimeout(() => iframe.src = currentSrc, 100);
+                clearTimeout(backTimeout);
+                window.close();
+                // Para Android TV WebView:
+                if (window.Android) window.Android.exit();
             }
-            isWaitingForPlay = false;
-            document.getElementById('play-overlay').classList.remove('active');
+        } else {
+            showMenu();
+        }
+    }
+
+    // =============================================
+    // NAVEGACIÓN EVENTOS
+    // =============================================
+    function navigate(dir) {
+        if (!isMenuOpen) { showMenu(); return; }
+        if (events.length === 0) return;
+        currentIndex = Math.max(0, Math.min(events.length - 1, currentIndex + dir));
+        renderSelection();
+        document.querySelector('.event-item.selected')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    function renderSelection() {
+        document.querySelectorAll('.event-item').forEach((el, i) => {
+            el.classList.toggle('selected', i === currentIndex);
+        });
+    }
+
+    function selectEvent() {
+        const ev = events[currentIndex];
+        if (!ev || !ev.channels?.length) return;
+        if (ev.channels.length === 1) {
+            playChannel(ev.channels[0], ev);
+        } else {
+            openModal(ev);
+        }
+    }
+
+    // =============================================
+    // REPRODUCCIÓN — SOLUCIÓN AUTOPLAY SIN CLICK
+    // =============================================
+    function playChannel(channel, ev) {
+        activeChannel = channel;
+        activeEvent = ev || activeEvent;
+
+        // Ocultar bienvenida
+        document.getElementById('welcome-screen').style.display = 'none';
+
+        // Mostrar loading
+        const loadingEl = document.getElementById('loading-overlay');
+        loadingEl.classList.add('active');
+
+        // Actualizar header info
+        document.getElementById('np-channel').textContent = channel.name;
+        document.getElementById('np-event').textContent = activeEvent?.teams || '';
+
+        const iframe = document.getElementById('tv-iframe');
+
+        // *** SOLUCIÓN AL PROBLEMA DE AUTOPLAY ***
+        // En lugar de cargar la URL directamente (que requiere click del usuario),
+        // construimos una página HTML que se auto-ejecuta dentro del iframe
+        // y hace click/touch automático al cargar.
+
+        let url = channel.url;
+        // Asegurar parámetros de autoplay en la URL
+        if (!url.includes('autoplay')) {
+            url += (url.includes('?') ? '&' : '?') + 'autoplay=1&mute=0';
         }
 
-        // --- MODAL ---
-        function showChannelModal(channels) {
-            isModalOpen = true; currentModalIndex = 0;
-            const opts = document.getElementById('channel-options');
-            opts.innerHTML = '';
-            channels.forEach((ch, i) => {
-                const div = document.createElement('div');
-                div.className = 'channel-option' + (i === 0 ? ' selected' : '');
-                div.innerText = ch.name;
-                div.onclick = () => playChannel(ch);
-                opts.appendChild(div);
-            });
-            document.getElementById('channel-modal').style.display = 'block';
-        }
+        // Técnica: usar srcdoc para inyectar un documento que:
+        // 1. Carga la URL en su propio iframe interno
+        // 2. Simula clicks/touches automáticamente en varios puntos
+        // 3. Usa múltiples estrategias según el tipo de player
 
-        function handleModalNav(action) {
-            const opts = document.querySelectorAll('.channel-option');
-            if (action === 'up') { currentModalIndex--; if(currentModalIndex<0) currentModalIndex=0; updateModalSel(); }
-            if (action === 'down') { currentModalIndex++; if(currentModalIndex>=opts.length) currentModalIndex=opts.length-1; updateModalSel(); }
-            if (action === 'ok') playChannel(currentList[currentIndex].channels[currentModalIndex]);
-            if (action === 'back' || action === 'left') closeModal();
-            if (action === 'home') { closeModal(); powerOff(); }
-        }
+        const autoplayDoc = `<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { background:#000; overflow:hidden; width:100vw; height:100vh; }
+  iframe { width:100%;height:100%;border:none; display:block; }
+</style>
+</head>
+<body>
+<iframe id="inner" src="${url}"
+  allow="autoplay; encrypted-media; fullscreen; picture-in-picture; accelerometer; gyroscope"
+  allowfullscreen
+></iframe>
+<script>
+(function() {
+  var iframe = document.getElementById('inner');
+  var clickCount = 0;
+  var maxAttempts = 12;
 
-        function updateModalSel() {
-            document.querySelectorAll('.channel-option').forEach((el, i) => el.classList.toggle('selected', i === currentModalIndex));
-        }
+  // Función principal: simula interacción humana en el iframe
+  function simulateInteraction() {
+    if (clickCount >= maxAttempts) return;
+    clickCount++;
 
-        function closeModal() {
-            isModalOpen = false;
-            document.getElementById('channel-modal').style.display = 'none';
+    var rect = iframe.getBoundingClientRect();
+    var cx = rect.width / 2;
+    var cy = rect.height / 2;
+
+    // Puntos estratégicos donde suelen estar los botones de play
+    var points = [
+      [cx, cy],            // centro exacto
+      [cx, cy - 20],       // un poco arriba del centro
+      [cx - 30, cy],       // izquierda del centro
+      [cx + 30, cy],       // derecha del centro
+    ];
+
+    points.forEach(function(pt) {
+      // Mouse click
+      ['mousedown','mouseup','click'].forEach(function(evType) {
+        var ev = new MouseEvent(evType, {
+          bubbles: true, cancelable: true,
+          clientX: pt[0], clientY: pt[1],
+          button: 0, buttons: 1
+        });
+        document.elementFromPoint(pt[0], pt[1])?.dispatchEvent(ev);
+        document.body.dispatchEvent(ev);
+        iframe.dispatchEvent(ev);
+      });
+
+      // Touch event
+      try {
+        var touch = new Touch({
+          identifier: Date.now() + Math.random(),
+          target: document.body,
+          clientX: pt[0], clientY: pt[1],
+          radiusX: 5, radiusY: 5, force: 1, rotationAngle: 0
+        });
+        ['touchstart','touchend'].forEach(function(evType) {
+          var te = new TouchEvent(evType, {
+            bubbles: true, cancelable: true,
+            touches: evType === 'touchstart' ? [touch] : [],
+            changedTouches: [touch]
+          });
+          document.body.dispatchEvent(te);
+          iframe.dispatchEvent(te);
+        });
+      } catch(e) {}
+    });
+
+    // Intentar directamente en el contenido del iframe si same-origin
+    try {
+      var iDoc = iframe.contentDocument || iframe.contentWindow.document;
+      var playBtns = iDoc.querySelectorAll(
+        'button, [class*="play"], [class*="Play"], [id*="play"], [id*="Play"], ' +
+        '[class*="btn"], video, [class*="overlay"], [class*="cover"]'
+      );
+      playBtns.forEach(function(btn) { try { btn.click(); } catch(e) {} });
+
+      var videos = iDoc.querySelectorAll('video');
+      videos.forEach(function(v) {
+        v.muted = false;
+        v.autoplay = true;
+        v.play().catch(function() { v.muted = true; v.play(); });
+      });
+    } catch(e) {
+      // Cross-origin: normal, no hacemos nada
+    }
+  }
+
+  // Disparar en cascada con retardos crecientes
+  var delays = [300, 800, 1500, 2500, 4000, 6000];
+  delays.forEach(function(d) {
+    setTimeout(simulateInteraction, d);
+  });
+
+  // También al cargar el iframe
+  iframe.addEventListener('load', function() {
+    setTimeout(simulateInteraction, 200);
+    setTimeout(simulateInteraction, 600);
+    setTimeout(simulateInteraction, 1200);
+  });
+})();
+<\/script>
+</body>
+</html>`;
+
+        // Usar srcdoc para máxima compatibilidad
+        iframe.style.display = 'block';
+        iframe.srcdoc = autoplayDoc;
+
+        // Ocultar loading después de un tiempo razonable
+        setTimeout(() => {
+            loadingEl.classList.remove('active');
+            const header = document.getElementById('player-header');
+            header.style.opacity = '1';
+            // Ocultar header después de unos segundos
+            setTimeout(() => { header.style.opacity = '0'; }, 4000);
+        }, 2500);
+
+        hideMenu();
+    }
+
+    // =============================================
+    // MENU SHOW/HIDE
+    // =============================================
+    function showMenu() {
+        isMenuOpen = true;
+        document.getElementById('sidebar').classList.remove('hidden');
+        document.getElementById('sidebar-toggle').classList.remove('visible');
+        renderSelection();
+    }
+
+    function hideMenu() {
+        isMenuOpen = false;
+        document.getElementById('sidebar').classList.add('hidden');
+        if (activeChannel) {
+            document.getElementById('sidebar-toggle').classList.add('visible');
         }
-        
-        function renderAgenda() {
-            const container = document.getElementById('event-list');
-            container.innerHTML = '';
-            if(currentList.length === 0) {
-                 // Esto se usará si por alguna razón llega vacío sin pasar por tryUpdate
-                 showEmptyState("No hay eventos");
-                 return;
+    }
+
+    // =============================================
+    // MODAL CANALES
+    // =============================================
+    function openModal(ev) {
+        isModalOpen = true;
+        modalIndex = 0;
+        activeEvent = ev;
+
+        document.getElementById('modal-event-name').textContent = ev.teams;
+
+        const container = document.getElementById('modal-channels');
+        container.innerHTML = '';
+
+        const icons = ['📺','🎬','📡','🖥️','📻'];
+
+        ev.channels.forEach((ch, i) => {
+            const btn = document.createElement('div');
+            btn.className = 'channel-btn' + (i === 0 ? ' selected' : '');
+            btn.innerHTML = `
+                <div class="ch-icon">${icons[i % icons.length]}</div>
+                <div class="ch-name">${ch.name}</div>
+                <div class="ch-quality">HD</div>
+            `;
+            btn.onclick = () => { modalIndex = i; confirmModal(); };
+            container.appendChild(btn);
+        });
+
+        document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function modalNav(dir) {
+        const btns = document.querySelectorAll('.channel-btn');
+        modalIndex = Math.max(0, Math.min(btns.length - 1, modalIndex + dir));
+        btns.forEach((b, i) => b.classList.toggle('selected', i === modalIndex));
+    }
+
+    function confirmModal() {
+        const ch = activeEvent.channels[modalIndex];
+        closeModal();
+        playChannel(ch, activeEvent);
+    }
+
+    function closeModal() {
+        isModalOpen = false;
+        document.getElementById('modal-overlay').classList.remove('active');
+    }
+
+    // =============================================
+    // TOAST
+    // =============================================
+    function showToast(msg, duration = 3000) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), duration);
+    }
+
+    // =============================================
+    // ACTUALIZAR EVENTOS
+    // =============================================
+    async function tryUpdate() {
+        const btn = document.getElementById('update-btn');
+        const dot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
+        btn.textContent = '↻ ACTUALIZANDO';
+        statusText.textContent = 'Actualizando...';
+        dot.className = 'status-dot';
+
+        const GIST_URL = 'https://gist.githubusercontent.com/RenzoCL/7f56fdb7784efa4aa8e135f0968a0dc1/raw/eventos.json';
+
+        try {
+            const res = await fetch(GIST_URL + '?t=' + Date.now());
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+
+            if (data && data.length > 0) {
+                events = data.sort((a, b) => a.time.localeCompare(b.time));
+                renderEvents();
+                dot.className = 'status-dot ok';
+                statusText.textContent = `${events.length} eventos`;
+                showToast(`✓ ${events.length} eventos cargados`);
+            } else {
+                events = [];
+                renderEvents();
+                dot.className = 'status-dot';
+                statusText.textContent = 'Sin eventos';
             }
-            currentList.forEach((ev, idx) => {
-                const div = document.createElement('div');
-                div.className = 'event-item' + (idx === currentIndex ? ' selected' : '');
-                div.innerHTML = `<div class="event-time">${ev.time}</div><div class="event-name">${ev.teams}</div><div class="event-league">${ev.league}</div>`;
-                div.onclick = () => { currentIndex = idx; selectEvent(idx); };
-                container.appendChild(div);
-            });
+        } catch (e) {
+            console.error(e);
+            dot.className = 'status-dot err';
+            statusText.textContent = 'Sin conexión';
+            showToast('⚠ Sin conexión a internet');
+            // Datos de respaldo
+            events = [
+                { time: "12:00", teams: "Partido de Prueba", league: "Modo Offline", channels: [{ name: "Canal Demo", url: "about:blank" }] }
+            ];
+            renderEvents();
         }
 
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('current-time').innerText = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        btn.textContent = '↻ ACTUALIZAR';
+    }
+
+    // =============================================
+    // RENDER LISTA DE EVENTOS
+    // =============================================
+    function renderEvents() {
+        const container = document.getElementById('event-list');
+
+        if (events.length === 0) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><span>SIN EVENTOS HOY</span></div>`;
+            return;
         }
 
-        init();
+        container.innerHTML = '';
+        events.forEach((ev, i) => {
+            const div = document.createElement('div');
+            div.className = 'event-item' + (i === currentIndex ? ' selected' : '');
 
-    </script>
+            const chCount = ev.channels?.length || 0;
+
+            div.innerHTML = `
+                <div class="event-time-col">
+                    <div class="event-hour">${ev.time}</div>
+                    <div class="event-live-badge">● EN VIVO</div>
+                </div>
+                <div class="event-bar"></div>
+                <div class="event-info">
+                    <div class="event-teams">${ev.teams}</div>
+                    <div class="event-league">${ev.league}</div>
+                </div>
+                ${chCount > 1 ? `<div class="event-channels-count">${chCount} canales</div>` : ''}
+            `;
+
+            div.onclick = () => {
+                currentIndex = i;
+                renderSelection();
+                selectEvent();
+            };
+
+            container.appendChild(div);
+        });
+    }
+
+    // =============================================
+    // ARRANCAR
+    // =============================================
+    init();
+</script>
 </body>
 </html>
