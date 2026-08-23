@@ -16,9 +16,7 @@ GIST_ID = os.getenv("GIST_ID")
 
 # FUENTES
 SOURCES = [
-    {"name": "StreamTP", "url": "https://streamtp10.com/eventos.json", "type": "streamtp"},
-    {"name": "La14HD", "url": "https://la14hd.com/eventos/json/agenda123.json", "type": "la14hd"},
-    {"name": "PLTVHD", "url": "https://pltvhd.com/diaries.json", "type": "pltvhd"}
+    {"name": "Futbol Libre", "url": "https://futbollibretv.org.pe/diaries.json?v=2.2", "type": "streamtp"},
 ]
 
 # --- DICCIONARIOS DE MAPEO ---
