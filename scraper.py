@@ -16,13 +16,12 @@ GIST_ID = os.getenv("GIST_ID")
 
 # FUENTES
 SOURCES = [
-    {"name": "Futbol Libre", "url": "https://futbollibretv.org.pe/diaries.json?v=2.2", "type": "streamtp"},
+    {"name": "Futbol Libre", "url": "https://futbollibretv.org.pe/diaries.json?v=2.2", "type": "pltvhd"},
 ]
 
 # --- DICCIONARIOS DE MAPEO ---
 
 # 1. Reglas de Sinonimos para Titulos (Regex)
-# Clave = Expresion regular a buscar, Valor = Texto correcto
 TITLE_REGEX_RULES = [
     (r"LaLiga\s*2", "LaLiga SmartBank"),
     (r"LaLiga\s*SmartBank", "LaLiga SmartBank"),
@@ -53,44 +52,66 @@ CHANNEL_NAMES = {
 
 # --- FUNCIONES AUXILIARES ---
 
+def limpiar_nombre_canal_simple(url):
+    """Extrae y limpia el nombre del canal desde la URL"""
+    try:
+        if 'stream=' in url:
+            slug = url.split('stream=')[-1].split('&')[0]
+            nombre = slug.replace('_', ' ').title()
+            return nombre
+        return "Canal"
+    except:
+        return "Canal"
+
 def obtener_nombre_canal_limpio(url, default_name):
+    """Obtiene el nombre limpio del canal usando el diccionario de mapeo"""
     try:
         if 'stream=' in url:
             slug = url.split('stream=')[-1].split('&')[0].lower()
             if slug in CHANNEL_NAMES:
                 return CHANNEL_NAMES[slug]
-    except: pass
+    except:
+        pass
     return default_name
 
 def decodificar_base64(url_encoded):
+    """Decodifica URLs codificadas en base64"""
     try:
         if '?r=' in url_encoded:
             encoded_part = url_encoded.split('?r=')[-1]
             decoded_bytes = base64.b64decode(encoded_part)
             return decoded_bytes.decode('utf-8')
         return url_encoded
-    except: return url_encoded
+    except:
+        return url_encoded
 
 def limpiar_texto(texto):
-    if not texto: return ""
+    """Limpia y normaliza texto"""
+    if not texto:
+        return ""
     t = str(texto).strip()
     t = t.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
     t = re.sub(r'\s+', ' ', t).strip()
     return t
 
 def normalizar_para_agrupar(texto):
-    if not texto: return ""
+    """Normaliza texto para agrupar eventos duplicados"""
+    if not texto:
+        return ""
     t = limpiar_texto(texto).lower()
-    t = t.replace("a", "a").replace("e", "e").replace("i", "i").replace("o", "o").replace("u", "u")
+    t = t.replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+    t = t.replace("à", "a").replace("è", "e").replace("ì", "i").replace("ò", "o").replace("ù", "u")
     return t
 
 def obtener_titulo_estandar(titulo_original):
+    """Aplica reglas regex para estandarizar títulos"""
     titulo_limpio = limpiar_texto(titulo_original)
     for patron, reemplazo in TITLE_REGEX_RULES:
         titulo_limpio = re.sub(patron, reemplazo, titulo_limpio, flags=re.IGNORECASE)
     return titulo_limpio
 
 def obtener_liga(titulo, categoria):
+    """Identifica la liga/categoría del evento"""
     titulo_up = limpiar_texto(titulo).upper()
     categorias_conocidas = [
         "LA LIGA", "LALIGA", "SERIE A", "PREMIER", "CHAMPIONS", "LIBERTADORES", "SUDAMERICANA",
@@ -106,6 +127,7 @@ def obtener_liga(titulo, categoria):
 # --- PROCESADORES ---
 
 def procesar_streamtp(data):
+    """Procesa eventos en formato StreamTP"""
     eventos = []
     lista = data if isinstance(data, list) else []
     for item in lista:
@@ -125,17 +147,20 @@ def procesar_streamtp(data):
                 "source": "StreamTP",
                 "clean_name": clean_name
             })
-        except: pass
+        except:
+            pass
     return eventos
 
 def procesar_pltvhd(data):
+    """Procesa eventos en formato PLTVHD"""
     eventos = []
     lista = data.get("data", [])
     for item in lista:
         try:
             attrs = item.get("attributes", {})
             hora = str(attrs.get("diary_hour", "--:--"))
-            if len(hora) > 5: hora = hora[:5]
+            if len(hora) > 5:
+                hora = hora[:5]
             
             titulo_raw = str(attrs.get("diary_description", "Evento"))
             titulo_final = obtener_titulo_estandar(titulo_raw)
@@ -145,7 +170,12 @@ def procesar_pltvhd(data):
                 emb_attrs = emb.get("attributes", {})
                 link_raw = str(emb_attrs.get("embed_iframe", ""))
                 link_final = decodificar_base64(link_raw)
-                if link_final.startswith('/'): link_final = "https://pltvhd.com" + link_final
+                
+                # Asegurar que la URL sea completa
+                if link_final.startswith('/'):
+                    link_final = "https://futbollibretv.ch" + link_final
+                if not link_final.startswith('http'):
+                    link_final = "https://futbollibretv.ch/" + link_final
 
                 raw_name = str(emb_attrs.get("embed_name", "Canal")).split('|')[0].strip()
                 clean_name = obtener_nombre_canal_limpio(link_final, raw_name)
@@ -158,10 +188,12 @@ def procesar_pltvhd(data):
                     "source": "PLTVHD",
                     "clean_name": clean_name
                 })
-        except: pass
+        except Exception as e:
+            pass
     return eventos
 
 def procesar_la14hd(data):
+    """Procesa eventos en formato La14HD"""
     lista = data if isinstance(data, list) else data.get("data", [])
     eventos = []
     for item in lista:
@@ -183,21 +215,14 @@ def procesar_la14hd(data):
                 "source": "La14HD",
                 "clean_name": clean_name
             })
-        except: pass
+        except:
+            pass
     return eventos
-
-def limpiar_nombre_canal_simple(url):
-    try:
-        if 'stream=' in url:
-            slug = url.split('stream=')[-1].split('&')[0]
-            nombre = slug.replace('_', ' ').title()
-            return nombre
-        return "Canal"
-    except: return "Canal"
 
 # --- FUNCION PRINCIPAL ---
 
 def actualizar_datos():
+    """Obtiene datos de todas las fuentes, los procesa y sube a GitHub"""
     print("Iniciando scraper...")
     
     partidos_dict = {}
@@ -206,21 +231,33 @@ def actualizar_datos():
         print(f"Obteniendo: {source['name']}...")
         try:
             response = requests.get(source['url'], timeout=15)
-            if response.status_code != 200: continue
-            try: data = response.json()
+            if response.status_code != 200:
+                print(f"   Error HTTP: {response.status_code}")
+                continue
+            
+            try:
+                data = response.json()
             except:
                 text = response.content.decode('utf-8', errors='ignore')
                 data = json.loads(text)
             
-            if source['type'] == 'streamtp': eventos = procesar_streamtp(data)
-            elif source['type'] == 'pltvhd': eventos = procesar_pltvhd(data)
-            elif source['type'] == 'la14hd': eventos = procesar_la14hd(data)
-            else: eventos = []
+            # Seleccionar procesador según el tipo
+            if source['type'] == 'streamtp':
+                eventos = procesar_streamtp(data)
+            elif source['type'] == 'pltvhd':
+                eventos = procesar_pltvhd(data)
+            elif source['type'] == 'la14hd':
+                eventos = procesar_la14hd(data)
+            else:
+                eventos = []
 
-            print(f"   Items: {len(eventos)}")
+            print(f"   Items procesados: {len(eventos)}")
 
+            # Agrupar eventos por tiempo y equipos
             for ev in eventos:
-                if not ev['url']: continue
+                if not ev['url']:
+                    continue
+                    
                 clave = f"{ev['time']}_{normalizar_para_agrupar(ev['teams'])}"
 
                 if clave not in partidos_dict:
@@ -236,40 +273,56 @@ def actualizar_datos():
                 current_count = partidos_dict[clave]['counters'].get(origen, 0) + 1
                 partidos_dict[clave]['counters'][origen] = current_count
 
-                base_name = ev.get('clean_name')
+                base_name = ev.get('clean_name', 'Canal')
                 nombre_final = f"{base_name} ({origen}) OP{current_count}"
                 canal = {"name": nombre_final, "url": ev['url']}
                 
+                # Evitar URLs duplicadas
                 if not any(c['url'] == canal['url'] for c in partidos_dict[clave]['channels']):
                     partidos_dict[clave]['channels'].append(canal)
 
         except Exception as e:
             print(f"   Error: {e}")
 
+    # Preparar lista final
     lista_final = list(partidos_dict.values())
     lista_final.sort(key=lambda x: x['time'])
     
+    # Limpiar campos temporales
     for p in lista_final:
-        if 'counters' in p: del p['counters']
+        if 'counters' in p:
+            del p['counters']
     
     print(f"Total eventos: {len(lista_final)}")
+    
+    # Imprimir resultado (para verificar)
+    print("\n--- RESULTADO ---")
+    for evento in lista_final[:5]:  # Mostrar primeros 5
+        print(f"{evento['time']} | {evento['teams']} ({evento['league']}) | {len(evento['channels'])} canales")
 
-    print("Subiendo a GitHub Gist...")
-    url_api = f"https://api.github.com/gists/{GIST_ID}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    payload = {
-        "files": {
-            "eventos.json": {
-                "content": json.dumps(lista_final, indent=2, ensure_ascii=False)
+    # Subir a GitHub Gist (si existen credenciales)
+    if GITHUB_TOKEN and GIST_ID:
+        print("\nSubiendo a GitHub Gist...")
+        url_api = f"https://api.github.com/gists/{GIST_ID}"
+        headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+        payload = {
+            "files": {
+                "eventos.json": {
+                    "content": json.dumps(lista_final, indent=2, ensure_ascii=False)
+                }
             }
         }
-    }
-    
-    try:
-        r = requests.patch(url_api, headers=headers, json=payload)
-        if r.status_code == 200: print("Actualizacion exitosa!")
-        else: print(f"Error subiendo: {r.text}")
-    except Exception as e: print(f"Excepcion subiendo: {e}")
+        
+        try:
+            r = requests.patch(url_api, headers=headers, json=payload)
+            if r.status_code == 200:
+                print("✓ Actualización exitosa!")
+            else:
+                print(f"✗ Error subiendo: {r.text}")
+        except Exception as e:
+            print(f"✗ Excepción subiendo: {e}")
+    else:
+        print("\n⚠ No se configuraron TOKEN_GITHUB o GIST_ID - resultado no se subió")
 
 if __name__ == "__main__":
     actualizar_datos()
