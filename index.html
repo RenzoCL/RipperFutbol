@@ -528,7 +528,15 @@ function init() {
   tryUpdate();
 }
 
+/* FIX: bandera para evitar registrar el listener de teclado más de una vez.
+   Esto era lo que causaba que subir/bajar se moviera de 2 en 2: init() se
+   llamaba dos veces al final del script, así que setupKeyListener() también
+   corría dos veces y quedaban dos listeners de 'keydown' activos a la vez. */
+let keyListenerAttached = false;
+
 function setupKeyListener() {
+  if (keyListenerAttached) return;
+  keyListenerAttached = true;
   document.addEventListener('keydown', function(e) {
     if (!isAppRunning) return;
     if(['Backspace','Escape','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
@@ -801,7 +809,6 @@ function forceHideMenu() {
   isMenuOpen=false; setSidebarDim(false);
 }
 
-init();
 init();
 </script>
 </body>
