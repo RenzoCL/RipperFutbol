@@ -114,8 +114,8 @@ def obtener_liga(titulo, categoria):
     """Identifica la liga/categoría del evento"""
     titulo_up = limpiar_texto(titulo).upper()
     categorias_conocidas = [
-        "LA LIGA", "LALIGA", "SERIE A", "PREMIER", "CHAMPIONS", "LIBERTADORES", "SUDAMERICANA",
-        "LIGA 1", "LIGA1", "BETPLAY", "FA CUP", "COPA DEL REY", "NBA", "NFL", "TENNIS", "TENIS", "F1", "BOXEO"
+    "LA LIGA", "LALIGA", "SERIE A", "PREMIER", "CHAMPIONSHIP", "CHAMPIONS", "LIBERTADORES", "SUDAMERICANA",
+    "LIGA 1", "LIGA1", "BETPLAY", "FA CUP", "COPA DEL REY", "NBA", "NFL", "TENNIS", "TENIS", "F1", "BOXEO"
     ]
     for cat in categorias_conocidas:
         if cat in titulo_up:
