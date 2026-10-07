@@ -308,6 +308,9 @@ def actualizar_datos():
 
             eventos = procesador(data)
             print(f"   Items procesados: {len(eventos)}")
+            if not eventos:
+                print(f"   DEBUG tipo: {type(data).__name__}")
+                print(f"   DEBUG respuesta: {json.dumps(data, ensure_ascii=False)[:800]}")
 
             # Agrupar eventos por hora y equipos
             for ev in eventos:
@@ -363,7 +366,7 @@ def actualizar_datos():
         print("\nSubiendo a GitHub Gist...")
         url_api = f"https://api.github.com/gists/{GIST_ID}"
         headers = {
-            "Authorization": f"token {GITHUB_TOKEN}",
+            "Authorization": f"Bearer {GITHUB_TOKEN.strip()}",
             "Accept": "application/vnd.github+json",
         }
         payload = {
