@@ -73,6 +73,11 @@ def limpiar_nombre_canal_simple(url):
         if "stream=" in url:
             slug = url.split("stream=")[-1].split("&")[0]
             return slug.replace("_", " ").title()
+        # URLs tipo .../return/dsports-fullHD-recomendado.html
+        m = re.search(r"/([^/?#]+?)\.html?(?:$|[?#])", url)
+        if m:
+            slug = re.sub(r"[-_](recomendado|fullhd|hd|sd)", "", m.group(1), flags=re.IGNORECASE)
+            return slug.replace("-", " ").replace("_", " ").title()
         return "Canal"
     except Exception:
         return "Canal"
