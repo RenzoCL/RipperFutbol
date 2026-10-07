@@ -16,7 +16,7 @@ GIST_ID = os.getenv("GIST_ID")
 
 # FUENTES
 SOURCES = [
-    {"name": "StreamTP", "url": "https://streamtp-golden1.click/events.json?_=1790887323787", "type": "streamtp"},
+    {"name": "StreamTP", "url": "https://futbollibretv.lol/api/agenda", "type": "streamtp"},
 ]
 
 # --- DICCIONARIOS DE MAPEO ---
